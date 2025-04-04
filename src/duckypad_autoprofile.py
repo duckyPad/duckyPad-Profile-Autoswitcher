@@ -1,7 +1,5 @@
 import time
 from tkinter import *
-from tkinter import filedialog
-from tkinter import simpledialog
 from tkinter import messagebox
 import urllib.request
 import tkinter.scrolledtext as ScrolledText
@@ -11,7 +9,7 @@ import os
 import webbrowser
 import sys
 import threading
-import hid_rw
+import hid_common
 import get_window
 import check_update
 from platformdirs import *
@@ -26,7 +24,6 @@ def ensure_dir(dir_path):
 
 # xhost +;sudo python3 duckypad_autoprofile.py 
 
-appname = 'duckypad_autoswitcher_dpp'
 appname = 'duckypad_autoswitcher'
 appauthor = 'dekuNukem'
 save_path = user_data_dir(appname, appauthor, roaming=True)
@@ -71,6 +68,14 @@ Fixed UI button size for macOS
 Updated macOS info URL
 Added DUCKYPAD_UI_SCALE environment variable
 Exits gracefully instead of crashing when not in sudo on macOS
+
+0.4.3
+Feb 23 2025
+Cached HID path
+
+0.5.0
+Apr 4 2025
+Multi duckyPad support
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -78,7 +83,7 @@ UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
 
-THIS_VERSION_NUMBER = '0.4.2'
+THIS_VERSION_NUMBER = '0.5.0'
 MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
@@ -92,60 +97,7 @@ print("This window prints debug information.")
 def duckypad_connect(show_box=True):
     # print("def duckypad_connect():")
     global fw_update_checked
-    global is_dpp
-
-    if hid_rw.get_duckypad_path(start_fresh=True) is None:
-        connection_info_str.set("duckyPad not found")
-        connection_info_label.config(foreground='red')
-        return
-
-    init_success = True
-    try:
-        init_success = hid_rw.duckypad_init()
-    except Exception as e:
-        init_success = False
-
-    if init_success is False:
-        connection_info_str.set("duckyPad detected, but I need additional permissions!")
-        connection_info_label.config(foreground='red')
-
-    if init_success is False and show_box is False:
-        return
-
-    if init_success is False and 'linux' in sys.platform:
-        messagebox.showinfo("Info", "duckyPad detected, but please run me in sudo!")
-        return
-
-    if init_success is False and 'darwin' in sys.platform:
-        box_result = messagebox.askokcancel("Info", "duckyPad detected, but I need additional permissions!\n\nClick OK for instructions.")
-        if box_result is True:
-            webbrowser.open('https://github.com/dekuNukem/duckyPad-Pro/blob/master/doc/linux_macos_notes.md')
-        exit()
-        return
-
-    if init_success is False:
-        messagebox.showinfo("Info", "Failed to connect to duckyPad")
-        return
-
-    try:
-        result = hid_rw.duckypad_get_info()
-        if result['is_busy']:
-            if show_box:
-                messagebox.showerror("Error", "duckyPad is busy!\n\nMake sure no script is running.")
-            hid_rw.duckypad_close()
-            return
-        connection_info_label.config(foreground='navy')
-        connection_info_str.set(f"Connected!      Model: {result['model']}      Serial: {result['serial']}      Firmware: {result['fw_ver']}")
-        if "duckypad pro" in result['model'].lower():
-            is_dpp = True
-        else:
-            is_dpp = False
-        if fw_update_checked is False:
-            print_fw_update_label(result['fw_ver'])
-            fw_update_checked = True
-    except Exception as e:
-        print(traceback.format_exc())
-    hid_rw.duckypad_close()
+    exit()
 
 def update_windows(textbox):
     # print("def update_windows(textbox):")
@@ -166,21 +118,21 @@ DP_WRITE_BUSY = 2
 def duckypad_write_with_retry(data_buf):
     print(data_buf)
     try:
-        hid_rw.duckypad_init()
-        if hid_rw.duckypad_get_info()['is_busy']:
+        hid_common.duckypad_init()
+        if hid_common.duckypad_get_info()['is_busy']:
             return DP_WRITE_BUSY
-        hid_rw.duckypad_hid_write(data_buf)
-        hid_rw.duckypad_close()
+        hid_common.duckypad_hid_write(data_buf)
+        hid_common.duckypad_close()
         return DP_WRITE_OK
     except Exception as e:
         # print("first exception:", traceback.format_exc())
         try:
             duckypad_connect(show_box=False)
-            hid_rw.duckypad_init()
-            if hid_rw.duckypad_get_info()['is_busy']:
+            hid_common.duckypad_init()
+            if hid_common.duckypad_get_info()['is_busy']:
                 return DP_WRITE_BUSY
-            hid_rw.duckypad_hid_write(data_buf)
-            hid_rw.duckypad_close()
+            hid_common.duckypad_hid_write(data_buf)
+            hid_common.duckypad_close()
             return DP_WRITE_OK
         except Exception as e:
             pass
@@ -351,7 +303,7 @@ def update_current_app_and_title():
 
     root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
 
-    # if hid_rw.is_hid_open is False and button_pressed is True:
+    # if hid_common.is_hid_open is False and button_pressed is True:
     #     connection_info_str.set("duckyPad not found")
     #     connection_info_label.config(foreground='red')
 
