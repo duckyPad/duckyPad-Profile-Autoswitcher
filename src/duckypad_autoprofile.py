@@ -80,6 +80,9 @@ Cached HID path
 0.5.0
 Apr 4 2025
 Multi duckyPad support
+Switch by name only
+double click to edit rule
+
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -484,17 +487,17 @@ def create_rule_window(existing_rule=None):
     rule_edit_lf = LabelFrame(rule_window, text="Rules", width=scaled_size(620), height=scaled_size(130))
     rule_edit_lf.place(x=scaled_size(10), y=scaled_size(5))
 
-    app_name_label = Label(master=rule_window, text="IF app name contains:")
+    app_name_label = Label(master=rule_window, text="IF App Name Contains:")
     app_name_label.place(x=scaled_size(20), y=scaled_size(25))
     app_name_entrybox = Entry(rule_window)
     app_name_entrybox.place(x=scaled_size(250), y=scaled_size(25), width=scaled_size(200))
     
-    window_name_label = Label(master=rule_window, text="AND window title contains:")
+    window_name_label = Label(master=rule_window, text="AND Window Title Contains:")
     window_name_label.place(x=scaled_size(20), y=scaled_size(50))
     window_name_entrybox = Entry(rule_window)
     window_name_entrybox.place(x=scaled_size(250), y=scaled_size(50), width=scaled_size(200))
 
-    switch_to_label = Label(master=rule_window, text="THEN jump to profile (Name or #):")
+    switch_to_label = Label(master=rule_window, text="THEN Jump to Profile (Case Sensitive):")
     switch_to_label.place(x=scaled_size(20), y=scaled_size(75))
     switch_to_entrybox = Entry(rule_window)
     switch_to_entrybox.place(x=scaled_size(250), y=scaled_size(75), width=scaled_size(200))
@@ -542,7 +545,7 @@ def delete_rule_click():
     update_rule_list_display()
     save_config()
 
-def edit_rule_click():
+def edit_rule_click(dummy=None):
     selection = profile_lstbox.curselection()
     if len(selection) <= 0:
         return
@@ -589,7 +592,8 @@ profile_var = StringVar()
 profile_lstbox = Listbox(rules_lf, listvariable=profile_var, height=scaled_size(20), exportselection=0)
 profile_lstbox.place(x=scaled_size(PADDING), y=scaled_size(30), width=scaled_size(500))
 profile_lstbox.config(font='TkFixedFont')
-profile_lstbox.bind('<FocusOut>', lambda e: profile_lstbox.selection_clear(0, END))
+# profile_lstbox.bind('<FocusOut>', lambda e: profile_lstbox.selection_clear(0, END))
+profile_lstbox.bind('<Double-Button>', edit_rule_click)
 
 rule_header_label = Label(master=rules_lf, text="Enabled   App              Window                 Profile", font='TkFixedFont')
 rule_header_label.place(x=scaled_size(5), y=scaled_size(5))
@@ -707,12 +711,24 @@ dp_fw_update_label.place(x=scaled_size(5), y=scaled_size(30))
 
 # ------------------
 
-# messagebox.showinfo("Info", "Now supporting switching profile by name!\n\nCase sensitive, duckyPad Pro only (for now).\n\n")
 root.update()
 duckypad_connect()
 
+def contains_jump_by_number():
+    has_jbn = False
+    for item in config_dict['rules_list']:
+        try:
+            dummy = int(item['switch_to'])
+            return True
+        except:
+            continue
+    return has_jbn
+
 t1 = threading.Thread(target=t1_worker, daemon=True)
 t1.start()
+
+if contains_jump_by_number():
+    messagebox.showinfo("Info", "Profiles are now referenced BY NAME (case sensitive) instead of number.\n\nMake sure to update the rules.")
 
 root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
 root.mainloop()
