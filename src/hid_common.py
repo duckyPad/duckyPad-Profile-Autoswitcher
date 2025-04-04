@@ -80,3 +80,28 @@ def hid_txrx(buf_64b, hid_obj):
     hid_obj.write(buf_64b)
     duckypad_to_pc_buf = hid_obj.read(DUCKYPAD_TO_PC_HID_BUF_SIZE)
     # print("\nduckyPad response:\n", duckypad_to_pc_buf)
+
+
+DP_MODEL_OG_DUCKYPAD = 20
+DP_MODEL_DUCKYPAD_PRO = 24
+
+class dp_type:
+    def __init__(self):
+        self.dp20 = DP_MODEL_OG_DUCKYPAD
+        self.dp24 = DP_MODEL_DUCKYPAD_PRO
+        self.local_dir = 2
+        self.usbmsc = 3
+        self.hidmsg = 4
+        self.unknown = 255
+        self.device_type = self.unknown
+        self.connection_type = self.unknown
+        self.info_dict = None
+
+    def __str__(self):
+        return (
+            f"dp_type(\n"
+            f"  device_type={self.device_type},\n"
+            f"  connection_type={self.connection_type},\n"
+            f"  info_dict={self.info_dict}\n"
+            f")"
+        )

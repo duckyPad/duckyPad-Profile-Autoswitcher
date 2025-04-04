@@ -1,4 +1,14 @@
 hidapi
-ctwin32 ; sys_platform == 'win32'
 platformdirs
+
+# Windows-specific
+ctwin32 ; sys_platform == 'win32'
+pygetwindow ; sys_platform == 'win32'
+
+# macOS-specific
+pyobjc ; sys_platform == 'darwin'  # Needed for AppKit and Quartz
+
+# Linux-specific
 ewmh ; sys_platform == 'linux'
+psutil ; sys_platform == 'linux'
+python-xlib ; sys_platform == 'linux'

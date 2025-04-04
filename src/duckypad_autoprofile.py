@@ -9,18 +9,20 @@ import os
 import webbrowser
 import sys
 import threading
-import hid_common
+from hid_common import *
 import get_window
 import check_update
 from platformdirs import *
 import subprocess
 
+def open_mac_linux_instruction():
+    webbrowser.open('https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html')
+
 def is_root():
     return os.getuid() == 0
 
 def ensure_dir(dir_path):
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
+    os.makedirs(dir_path, exist_ok=1)
 
 # xhost +;sudo python3 duckypad_autoprofile.py 
 
@@ -88,19 +90,94 @@ MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
 fw_update_checked = False
-is_dpp = False
+
+THIS_DUCKYPAD = dp_type()
+
+MIN_DUCKYPAD_PRO_FIRMWARE_VERSION = "1.0.0"
+MAX_DUCKYPAD_PRO_FIRMWARE_VERSION = "1.5.0"
+MIN_DUCKYPAD_2020_FIRMWARE_VERSION = "2.0.0"
+MAX_DUCKYPAD_2020_FIRMWARE_VERSION = "2.5.0"
 
 print("\n\n--------------------------")
 print("\n\nWelcome to duckyPad Autoswitcher!\n")
 print("This window prints debug information.")
 
-def duckypad_connect(show_box=True):
-    # print("def duckypad_connect():")
+
+dp_model_lookup = {DP_MODEL_OG_DUCKYPAD:"duckyPad(2020)", DP_MODEL_DUCKYPAD_PRO:"duckyPad Pro"}
+
+def ask_user_to_select_a_duckypad(dp_info_list):
+    dp_select_window = Toplevel(root)
+    dp_select_window.title("Select-a-duckyPad")
+    dp_select_window.geometry(f"{scaled_size(360)}x{scaled_size(320)}")
+    dp_select_window.resizable(width=FALSE, height=FALSE)
+    dp_select_window.grab_set()
+
+    dp_select_text_label = Label(master=dp_select_window, text="Multiple duckyPads detected!\nDouble click to select one")
+    dp_select_text_label.place(x=scaled_size(90), y=scaled_size(10))
+
+    dp_select_column_label = Label(master=dp_select_window, text=f"{'Model':<16}{'Serial':<10}Firmware", font='TkFixedFont')
+    dp_select_column_label.place(x=scaled_size(50), y=scaled_size(50))
+    selected_duckypad = IntVar()
+    selected_duckypad.set(-1)
+
+    def make_dp_info_str(dp_info_dict):
+        try:
+            dp_model_str = dp_model_lookup[dp_info_dict['dp_model']]
+        except:
+            dp_model_str = "Unknown"
+        return f" {dp_model_str:<18}{dp_info_dict['serial']:<12}{dp_info_dict['fw_version']}"
+
+    def dp_select_button_click(wtf=None):
+        this_selection = dp_select_listbox.curselection()
+        if len(this_selection) == 0:
+            return
+        selected_duckypad.set(this_selection[0])
+        dp_select_window.destroy()
+
+    dp_select_var = StringVar(value=[make_dp_info_str(x) for x in dp_info_list])
+    dp_select_listbox = Listbox(dp_select_window, listvariable=dp_select_var, height=16, exportselection=0, font='TkFixedFont', selectmode='single')
+    dp_select_listbox.place(x=scaled_size(20), y=scaled_size(70), width=scaled_size(320), height=scaled_size(200))
+    dp_select_listbox.bind('<Double-Button>', dp_select_button_click)
+
+    dp_select_button = Button(dp_select_window, text="Select", command=dp_select_button_click)
+    dp_select_button.place(x=scaled_size(20), y=scaled_size(280), width=scaled_size(320))
+
+    root.wait_window(dp_select_window)
+    return selected_duckypad.get()
+
+def duckypad_connect():
     global fw_update_checked
-    exit()
+    all_dp_info_list = scan_duckypads()
+    if all_dp_info_list is None:
+        if 'darwin' in sys.platform and messagebox.askokcancel("Info", "duckyPad detected, but I need additional permissions!\n\nClick OK for instructions"):
+            open_mac_linux_instruction()
+        elif 'linux' in sys.platform:
+            messagebox.showinfo("Info", "duckyPad detected, but please run me in sudo!")
+        return
+    
+    if len(all_dp_info_list) == 0:
+        connection_info_str.set("duckyPad not found")
+        return
+
+    selected_index = -1
+    if len(all_dp_info_list) == 1:
+        selected_index = 0
+    else:
+        selected_index = ask_user_to_select_a_duckypad(all_dp_info_list)
+    if selected_index == -1:
+        return
+    
+    user_selected_dp = all_dp_info_list[selected_index]
+    print("user selected:", user_selected_dp)
+
+    if dpp_is_fw_compatible(user_selected_dp) is False:
+        return
+
+    THIS_DUCKYPAD.device_type = user_selected_dp['dp_model']
+    THIS_DUCKYPAD.info_dict = user_selected_dp
+    connection_info_str.set(f"Connected!      Model: {dp_model_lookup.get(THIS_DUCKYPAD.device_type)}      Serial: {THIS_DUCKYPAD.info_dict.get('serial')}      Firmware: {THIS_DUCKYPAD.info_dict.get('fw_version')}")
 
 def update_windows(textbox):
-    # print("def update_windows(textbox):")
     windows_str = 'Application' + ' '*14 + "Window Title\n"
     windows_str += "-------------------------------------\n"
     for item in get_window.get_list_of_all_windows():
@@ -117,6 +194,7 @@ DP_WRITE_BUSY = 2
 
 def duckypad_write_with_retry(data_buf):
     print(data_buf)
+    return DP_WRITE_OK
     try:
         hid_common.duckypad_init()
         if hid_common.duckypad_get_info()['is_busy']:
@@ -127,7 +205,7 @@ def duckypad_write_with_retry(data_buf):
     except Exception as e:
         # print("first exception:", traceback.format_exc())
         try:
-            duckypad_connect(show_box=False)
+            duckypad_connect()
             hid_common.duckypad_init()
             if hid_common.duckypad_get_info()['is_busy']:
                 return DP_WRITE_BUSY
@@ -140,14 +218,12 @@ def duckypad_write_with_retry(data_buf):
     return DP_WRITE_FAIL
 
 def prev_prof_click():
-    # print("def prev_prof_click():")
     buffff = [0] * 64
     buffff[0] = 5
     buffff[2] = 2
     duckypad_write_with_retry(buffff)
 
 def next_prof_click():
-    # print("def next_prof_click():")
     buffff = [0] * 64
     buffff[0] = 5
     buffff[2] = 3
@@ -166,7 +242,6 @@ connection_info_lf = LabelFrame(root, text="Connection", width=scaled_size(620),
 connection_info_lf.place(x=scaled_size(PADDING), y=scaled_size(0)) 
 connection_info_label = Label(master=connection_info_lf, textvariable=connection_info_str)
 connection_info_label.place(x=scaled_size(110), y=scaled_size(5))
-connection_info_label.config(foreground='orange red')
 
 connection_button = Button(connection_info_lf, text="Connect", command=duckypad_connect)
 connection_button.place(x=scaled_size(PADDING), y=scaled_size(5), width=scaled_size(90))
@@ -176,18 +251,15 @@ connection_button.place(x=scaled_size(PADDING), y=scaled_size(5), width=scaled_s
 discord_link_url = "https://raw.githubusercontent.com/dekuNukem/duckyPad/master/resources/discord_link.txt"
 
 def open_user_manual():
-    # print("def open_user_manual():")
     webbrowser.open('https://github.com/dekuNukem/duckyPad-profile-autoswitcher/blob/master/README.md#user-manual')
 
 def open_discord():
-    # print("def open_discord():")
     try:
         webbrowser.open(str(urllib.request.urlopen(discord_link_url).read().decode('utf-8')).split('\n')[0])
     except Exception as e:
         messagebox.showerror("Error", "Failed to open discord link!\n"+str(e))
 
 def refresh_autoswitch():
-    # print("def refresh_autoswitch():")
     if config_dict['autoswitch_enabled']:
         autoswitch_status_var.set("Profile Autoswitch: ACTIVE     Click me to stop")
         autoswitch_status_label.config(fg='white', bg='green', cursor="hand2")
@@ -196,13 +268,11 @@ def refresh_autoswitch():
         autoswitch_status_label.config(fg='white', bg='orange red', cursor="hand2")
 
 def toggle_autoswitch(whatever):
-    # print("def toggle_autoswitch(whatever):")
     config_dict['autoswitch_enabled'] = not config_dict['autoswitch_enabled']
     save_config()
     refresh_autoswitch()
     
 def open_save_folder():
-    # print("def open_save_folder():")
     messagebox.showinfo("Info", "* Copy config.txt elsewhere to make a backup!\n\n* Close the app then copy it back to restore.")
     if 'darwin' in sys.platform:
         subprocess.Popen(["open", save_path])
@@ -299,7 +369,6 @@ def switch_queue_add(profile_target_name):
 WINDOW_CHECK_FREQUENCY_MS = 100
 
 def update_current_app_and_title():
-    # print("def update_current_app_and_title():")
 
     root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
 
@@ -347,7 +416,6 @@ config_dict['rules_list'] = []
 config_dict['autoswitch_enabled'] = True
 
 def clean_input(str_input):
-    # print("def clean_input(str_input):")
     return str_input.strip()
 
 invalid_filename_characters = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
@@ -364,7 +432,6 @@ def check_profile_name_or_number(raw_str):
     return clean_input(raw_str)
 
 def make_rule_str(rule_dict):
-    # print("def make_rule_str(rule_dict):")
     rule_str = ''
     if rule_dict['enabled']:
         rule_str += "  * "
@@ -387,11 +454,9 @@ def make_rule_str(rule_dict):
     return rule_str
 
 def update_rule_list_display():
-    # print("def update_rule_list_display():")
     profile_var.set([make_rule_str(x) for x in config_dict['rules_list']])
 
 def save_config():
-    # print("def save_config():")
     try:
         ensure_dir(save_path)
         with open(save_filename, 'w', encoding='utf8') as save_file:
@@ -400,7 +465,6 @@ def save_config():
         messagebox.showerror("Error", "Save failed!\n\n"+str(traceback.format_exc()))
 
 def save_rule_click(window, this_rule):
-    # print("def save_rule_click(window, this_rule):")
     if this_rule is None:
         rule_dict = {}
         rule_dict["app_name"] = clean_input(app_name_entrybox.get())
@@ -425,7 +489,6 @@ RULE_WINDOW_WIDTH = scaled_size(640)
 RULE_WINDOW_HEIGHT = scaled_size(510)
 
 def create_rule_window(existing_rule=None):
-    # print("def create_rule_window(existing_rule=None):")
     global rule_window
     global app_name_entrybox
     global window_name_entrybox
@@ -490,7 +553,6 @@ def create_rule_window(existing_rule=None):
     update_windows(windows_list_text_area)
 
 def delete_rule_click():
-    # print("def delete_rule_click():")
     selection = profile_lstbox.curselection()
     if len(selection) <= 0:
         return
@@ -499,14 +561,12 @@ def delete_rule_click():
     save_config()
 
 def edit_rule_click():
-    # print("def edit_rule_click():")
     selection = profile_lstbox.curselection()
     if len(selection) <= 0:
         return
     create_rule_window(config_dict['rules_list'][selection[0]])
 
 def toggle_rule_click():
-    # print("def toggle_rule_click():")
     selection = profile_lstbox.curselection()
     if len(selection) <= 0:
         return
@@ -515,7 +575,6 @@ def toggle_rule_click():
     save_config()
 
 def rule_shift_up():
-    # print("def rule_shift_up():")
     selection = profile_lstbox.curselection()
     if len(selection) <= 0 or selection[0] == 0:
         return
@@ -529,7 +588,6 @@ def rule_shift_up():
     save_config()
 
 def rule_shift_down():
-    # print("def rule_shift_down():")
     selection = profile_lstbox.curselection()
     if len(selection) <= 0 or selection[0] == len(config_dict['rules_list']) - 1:
         return
@@ -589,29 +647,61 @@ refresh_autoswitch()
 
 # ------------------
 
-def fw_update_click(what):
-    # print("def fw_update_click(what):")
-    if is_dpp:
-        webbrowser.open('https://github.com/dekuNukem/duckyPad-Pro/blob/master/doc/firmware_updates_and_version_history.md')
-    else:
-        webbrowser.open('https://github.com/dekuNukem/duckyPad/blob/master/firmware_updates_and_version_history.md')
+def fw_update_click(event, dp_info_dict):
+    if dp_info_dict['dp_model'] == DP_MODEL_OG_DUCKYPAD:
+        webbrowser.open("https://github.com/dekuNukem/duckyPad/blob/master/firmware_updates_and_version_history.md")
+    elif dp_info_dict['dp_model'] == DP_MODEL_DUCKYPAD_PRO:
+        webbrowser.open('https://dekunukem.github.io/duckyPad-Pro/doc/fw_update.html')
 
 def app_update_click(event):
-    # print("def app_update_click(event):")
-    webbrowser.open('https://github.com/dekuNukem/duckyPad-profile-autoswitcher/releases')
+    webbrowser.open('https://github.com/dekuNukem/duckyPad-profile-autoswitcher/releases/latest')
 
-def print_fw_update_label(this_version):
-    # print("def print_fw_update_label(this_version):")
-    fw_result = check_update.get_firmware_update_status(this_version, is_dpp)
+def print_fw_update_label(dp_info_dict):
+    this_version = dp_info_dict["fw_version"]
+    fw_result = check_update.get_firmware_update_status(dp_info_dict)
     if fw_result == 0:
-        dp_fw_update_label.config(text='duckyPad firmware (' + str(this_version) +'): Up to date', fg='black', bg=default_button_color)
+        dp_fw_update_label.config(text=f'Firmware ({this_version}): Up to date', fg='black', bg=default_button_color)
         dp_fw_update_label.unbind("<Button-1>")
     elif fw_result == 1:
-        dp_fw_update_label.config(text='duckyPad firmware (' + str(this_version) +'): Update available! Click me!', fg='black', bg='orange', cursor="hand2")
-        dp_fw_update_label.bind("<Button-1>", fw_update_click)
+        dp_fw_update_label.config(text=f'Firmware ({this_version}): Update available! Click me!', fg='black', bg='orange', cursor="hand2")
+        dp_fw_update_label.bind("<Button-1>", lambda event: fw_update_click(event, dp_info_dict))
     else:
-        dp_fw_update_label.config(text='duckyPad firmware: Unknown', fg='black', bg=default_button_color)
+        dp_fw_update_label.config(text='Firmware: Unknown', fg='black', bg=default_button_color)
         dp_fw_update_label.unbind("<Button-1>")
+    return this_version
+
+FW_OK = 0
+FW_TOO_LOW = 1
+FW_TOO_HIGH = 2
+FW_UNKNOWN = 3
+
+def is_dp_fw_valid(dp_info_dict):
+    current_fw_str = dp_info_dict["fw_version"]
+    
+    if dp_info_dict['dp_model'] == DP_MODEL_DUCKYPAD_PRO:
+        min_fw = MIN_DUCKYPAD_PRO_FIRMWARE_VERSION
+        max_fw = MAX_DUCKYPAD_PRO_FIRMWARE_VERSION
+    elif dp_info_dict['dp_model'] == DP_MODEL_OG_DUCKYPAD:
+        min_fw = MIN_DUCKYPAD_2020_FIRMWARE_VERSION
+        max_fw = MAX_DUCKYPAD_2020_FIRMWARE_VERSION
+    else:
+        return FW_UNKNOWN
+    
+    if check_update.versiontuple(current_fw_str) < check_update.versiontuple(min_fw):
+        if messagebox.askokcancel("Info", f"duckyPad firmware too old!\n\nCurrent: {current_fw_str}\nSupported: Between {min_fw} and {max_fw}.\n\nSee how to update it?"):
+            fw_update_click(None, dp_info_dict)
+        return FW_TOO_LOW
+    if check_update.versiontuple(current_fw_str) > check_update.versiontuple(max_fw):
+        if messagebox.askokcancel("Info", f"duckyPad firmware too new!\n\nCurrent: {current_fw_str}\nSupported: Between {min_fw} and {max_fw}.\n\nSee how to update this app?"):
+            app_update_click(None)
+        return FW_TOO_HIGH
+    return FW_OK
+
+def dpp_is_fw_compatible(dp_info_dict):
+    print_fw_update_label(dp_info_dict)
+    if is_dp_fw_valid(dp_info_dict) != FW_OK:
+        return False
+    return True
 
 updates_lf = LabelFrame(root, text="Updates", width=scaled_size(620), height=scaled_size(80))
 updates_lf.place(x=scaled_size(PADDING), y=scaled_size(570))
@@ -636,6 +726,7 @@ dp_fw_update_label.place(x=scaled_size(5), y=scaled_size(30))
 # ------------------
 
 # messagebox.showinfo("Info", "Now supporting switching profile by name!\n\nCase sensitive, duckyPad Pro only (for now).\n\n")
+root.update()
 duckypad_connect()
 
 t1 = threading.Thread(target=t1_worker, daemon=True)
