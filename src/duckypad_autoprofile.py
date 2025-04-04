@@ -715,14 +715,13 @@ root.update()
 duckypad_connect()
 
 def contains_jump_by_number():
-    has_jbn = False
     for item in config_dict['rules_list']:
         try:
-            dummy = int(item['switch_to'])
+            int(item['switch_to'])
             return True
         except:
             continue
-    return has_jbn
+    return False
 
 t1 = threading.Thread(target=t1_worker, daemon=True)
 t1.start()
