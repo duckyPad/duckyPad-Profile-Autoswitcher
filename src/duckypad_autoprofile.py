@@ -213,19 +213,47 @@ HID_COMMAND_PREV_PROFILE = 2
 HID_COMMAND_NEXT_PROFILE = 3
 HID_COMMAND_GOTO_PROFILE_BY_NAME = 23
 
-def duckypad_write_with_retry(data_buf):
-    hid_txrx(data_buf, myh)
-    return DP_WRITE_OK
+def hid_reconnect(dp_dict):
+    dp_list = scan_duckypads() # scan again because HID path might have changed
+    if dp_list is None or len(dp_list) == 0:
+        return
+    new_info_dict = []
+    for this_dp in dp_list:
+        if this_dp["serial"] == dp_dict["serial"]:
+            new_info_dict.append(this_dp)
+    if len(new_info_dict) == 0:
+        return
+    print("hid_reconnect:", new_info_dict[0])
+    open_hid_path(new_info_dict[0], myh)
 
+def duckypad_write_with_retry(data_buf):
+    try:
+        hid_txrx(data_buf, myh)
+        return DP_WRITE_OK
+    except Exception as e:
+        print(e)
+
+    try:
+        print("SECOND TRY")
+        hid_reconnect(THIS_DUCKYPAD.info_dict)
+        hid_txrx(data_buf, myh)
+        return DP_WRITE_OK
+    except Exception as e:
+        print(e)
+    print("FAILED")
+    return DP_WRITE_FAIL
+    
 def prev_prof_click():
     buffff = get_empty_pc_to_duckypad_buf()
     buffff[2] = HID_COMMAND_PREV_PROFILE
-    duckypad_write_with_retry(buffff)
+    this_result = duckypad_write_with_retry(buffff)
+    update_banner_text(this_result)
 
 def next_prof_click():
     buffff = get_empty_pc_to_duckypad_buf()
     buffff[2] = HID_COMMAND_NEXT_PROFILE
-    duckypad_write_with_retry(buffff)
+    this_result = duckypad_write_with_retry(buffff)
+    update_banner_text(this_result)
 
 root = Tk()
 root.title("duckyPad autoswitcher " + THIS_VERSION_NUMBER)
@@ -325,6 +353,17 @@ def duckypad_goto_profile(profile_target):
 profile_switch_queue = []
 last_switch = None
 
+def update_banner_text(switch_result):
+    if switch_result == DP_WRITE_OK:
+        connection_info_label.place(x=scaled_size(110), y=scaled_size(5))
+        connection_info_str.set(f"Connected!      Model: {dp_model_lookup.get(THIS_DUCKYPAD.device_type)}      Serial: {THIS_DUCKYPAD.info_dict.get('serial')}      Firmware: {THIS_DUCKYPAD.info_dict.get('fw_version')}")
+    elif switch_result == DP_WRITE_BUSY:
+        print("DUCKYPAD IS BUSY! Retrying later")
+    elif switch_result == DP_WRITE_FAIL:
+        connection_info_label.place(x=scaled_size(130), y=scaled_size(0))
+        connection_info_str.set(f"{dp_model_lookup.get(THIS_DUCKYPAD.device_type)} ({THIS_DUCKYPAD.info_dict.get('serial')}) Disappeared!\nI'll keep looking, or press Connect to select a new device.")
+    root.update()
+
 def t1_worker():
     global last_switch
     while(1):
@@ -333,9 +372,8 @@ def t1_worker():
             continue
         queue_head = profile_switch_queue[0]
         result = duckypad_goto_profile(queue_head)
-        if result == DP_WRITE_BUSY:
-            print("DUCKYPAD IS BUSY! Retrying later")
-        elif result == DP_WRITE_OK:
+        update_banner_text(result)
+        if result == DP_WRITE_OK:
             print("switch success")
             profile_switch_queue.pop(0)
             last_switch = queue_head
