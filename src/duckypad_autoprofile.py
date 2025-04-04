@@ -178,7 +178,8 @@ def duckypad_connect():
     if dpp_is_fw_compatible(user_selected_dp) is False:
         return
 
-    open_hid_path(user_selected_dp, myh)
+    if open_hid_path(user_selected_dp, myh) is False:
+        return
     THIS_DUCKYPAD.device_type = user_selected_dp['dp_model']
     THIS_DUCKYPAD.info_dict = user_selected_dp
     connection_info_str.set(f"Connected!      Model: {dp_model_lookup.get(THIS_DUCKYPAD.device_type)}      Serial: {THIS_DUCKYPAD.info_dict.get('serial')}      Firmware: {THIS_DUCKYPAD.info_dict.get('fw_version')}")
@@ -187,11 +188,11 @@ def open_hid_path(dp_info_dict, hid_obj):
     hid_obj.close()
     try:
         hid_obj.open_path(dp_info_dict['hid_path'])
+        return True
     except Exception as e:
         if "already open" in str(e).lower():
             return True
-        raise RuntimeError(f"open_hid_path: {e}")
-    return True
+    return False
 
 def update_windows(textbox):
     windows_str = 'Application' + ' '*14 + "Window Title\n"
