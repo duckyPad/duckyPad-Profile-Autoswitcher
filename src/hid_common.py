@@ -44,8 +44,7 @@ def make_dp_info_dict(hid_msg, hid_path):
 
 def get_all_dp_info(dp_path_list):
     dp_info_list = []
-    pc_to_duckypad_buf = [0] * PC_TO_DUCKYPAD_HID_BUF_SIZE
-    pc_to_duckypad_buf[0] = 5   # HID Usage ID, always 5
+    pc_to_duckypad_buf = get_empty_pc_to_duckypad_buf()
     for this_path in dp_path_list:
         # print(this_path)
         myh = hid.device()
@@ -76,11 +75,10 @@ def get_empty_pc_to_duckypad_buf():
     return ptd_buf
 
 def hid_txrx(buf_64b, hid_obj):
-    # print("\n\nSending to duckyPad:\n", buf_64b)
+    print("\n\nSending to duckyPad:\n", buf_64b)
     hid_obj.write(buf_64b)
     duckypad_to_pc_buf = hid_obj.read(DUCKYPAD_TO_PC_HID_BUF_SIZE)
-    # print("\nduckyPad response:\n", duckypad_to_pc_buf)
-
+    print("\nduckyPad response:\n", duckypad_to_pc_buf)
 
 DP_MODEL_OG_DUCKYPAD = 20
 DP_MODEL_DUCKYPAD_PRO = 24

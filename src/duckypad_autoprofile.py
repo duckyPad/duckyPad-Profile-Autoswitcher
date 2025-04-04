@@ -37,6 +37,8 @@ default_button_color = 'SystemButtonFace'
 if 'linux' in sys.platform:
     default_button_color = 'grey'
 
+myh = hid.device()
+
 """
 0.0.8 2023 02 20
 faster refresh rate 33ms
@@ -173,9 +175,20 @@ def duckypad_connect():
     if dpp_is_fw_compatible(user_selected_dp) is False:
         return
 
+    open_hid_path(user_selected_dp, myh)
     THIS_DUCKYPAD.device_type = user_selected_dp['dp_model']
     THIS_DUCKYPAD.info_dict = user_selected_dp
     connection_info_str.set(f"Connected!      Model: {dp_model_lookup.get(THIS_DUCKYPAD.device_type)}      Serial: {THIS_DUCKYPAD.info_dict.get('serial')}      Firmware: {THIS_DUCKYPAD.info_dict.get('fw_version')}")
+
+def open_hid_path(dp_info_dict, hid_obj):
+    hid_obj.close()
+    try:
+        hid_obj.open_path(dp_info_dict['hid_path'])
+    except Exception as e:
+        if "already open" in str(e).lower():
+            return True
+        raise RuntimeError(f"open_hid_path: {e}")
+    return True
 
 def update_windows(textbox):
     windows_str = 'Application' + ' '*14 + "Window Title\n"
@@ -192,41 +205,23 @@ DP_WRITE_OK = 0
 DP_WRITE_FAIL = 1
 DP_WRITE_BUSY = 2
 
+HID_COMMAND_GOTO_PROFILE_BY_NUMBER = 1
+HID_COMMAND_PREV_PROFILE = 2
+HID_COMMAND_NEXT_PROFILE = 3
+HID_COMMAND_GOTO_PROFILE_BY_NAME = 23
+
 def duckypad_write_with_retry(data_buf):
-    print(data_buf)
+    hid_txrx(data_buf, myh)
     return DP_WRITE_OK
-    try:
-        hid_common.duckypad_init()
-        if hid_common.duckypad_get_info()['is_busy']:
-            return DP_WRITE_BUSY
-        hid_common.duckypad_hid_write(data_buf)
-        hid_common.duckypad_close()
-        return DP_WRITE_OK
-    except Exception as e:
-        # print("first exception:", traceback.format_exc())
-        try:
-            duckypad_connect()
-            hid_common.duckypad_init()
-            if hid_common.duckypad_get_info()['is_busy']:
-                return DP_WRITE_BUSY
-            hid_common.duckypad_hid_write(data_buf)
-            hid_common.duckypad_close()
-            return DP_WRITE_OK
-        except Exception as e:
-            pass
-            # print("second exception:", traceback.format_exc())
-    return DP_WRITE_FAIL
 
 def prev_prof_click():
-    buffff = [0] * 64
-    buffff[0] = 5
-    buffff[2] = 2
+    buffff = get_empty_pc_to_duckypad_buf()
+    buffff[2] = HID_COMMAND_PREV_PROFILE
     duckypad_write_with_retry(buffff)
 
 def next_prof_click():
-    buffff = [0] * 64
-    buffff[0] = 5
-    buffff[2] = 3
+    buffff = get_empty_pc_to_duckypad_buf()
+    buffff[2] = HID_COMMAND_NEXT_PROFILE
     duckypad_write_with_retry(buffff)
 
 root = Tk()
@@ -314,27 +309,14 @@ current_window_title_var.set("Current Window Title:")
 PC_TO_DUCKYPAD_HID_BUF_SIZE = 64
 
 def duckypad_goto_profile_by_name(profile_name):
-    profile_name = profile_name[:32]
-    buffff = [0] * PC_TO_DUCKYPAD_HID_BUF_SIZE
-    buffff[0] = 5
-    buffff[2] = 23
+    profile_name = str(profile_name)[:32]
+    buffff = get_empty_pc_to_duckypad_buf()
+    buffff[2] = HID_COMMAND_GOTO_PROFILE_BY_NAME
     for index, item in enumerate(profile_name):
         buffff[index+3] = ord(item)
     return duckypad_write_with_retry(buffff)
 
-def duckypad_goto_profile_by_index(profile_index):
-    buffff = [0] * PC_TO_DUCKYPAD_HID_BUF_SIZE
-    buffff[0] = 5
-    buffff[2] = 1
-    buffff[3] = profile_index
-    return duckypad_write_with_retry(buffff)
-
 def duckypad_goto_profile(profile_target):
-    try:
-        return duckypad_goto_profile_by_index(int(profile_target))
-    except Exception as e:
-        # print('Not a number:', e)
-        pass
     return duckypad_goto_profile_by_name(profile_target)
 
 profile_switch_queue = []
