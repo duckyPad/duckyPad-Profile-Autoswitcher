@@ -77,7 +77,7 @@ Exits gracefully instead of crashing when not in sudo on macOS
 Feb 23 2025
 Cached HID path
 
-0.5.0
+1.0.0
 Apr 4 2025
 Multi duckyPad support
 Switch by name only
@@ -90,7 +90,7 @@ UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
 
-THIS_VERSION_NUMBER = '0.5.0'
+THIS_VERSION_NUMBER = '1.0.0'
 MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
@@ -98,15 +98,14 @@ fw_update_checked = False
 
 THIS_DUCKYPAD = dp_type()
 
-MIN_DUCKYPAD_PRO_FIRMWARE_VERSION = "1.0.0"
-MAX_DUCKYPAD_PRO_FIRMWARE_VERSION = "1.5.0"
+MIN_DUCKYPAD_PRO_FIRMWARE_VERSION = "2.0.0"
+MAX_DUCKYPAD_PRO_FIRMWARE_VERSION = "2.5.0"
 MIN_DUCKYPAD_2020_FIRMWARE_VERSION = "2.0.0"
 MAX_DUCKYPAD_2020_FIRMWARE_VERSION = "2.5.0"
 
 print("\n\n--------------------------")
 print("\n\nWelcome to duckyPad Autoswitcher!\n")
 print("This window prints debug information.")
-
 
 dp_model_lookup = {DP_MODEL_OG_DUCKYPAD:"duckyPad(2020)", DP_MODEL_DUCKYPAD_PRO:"duckyPad Pro"}
 
