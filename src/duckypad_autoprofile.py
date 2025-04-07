@@ -274,16 +274,11 @@ connection_button.place(x=scaled_size(PADDING), y=scaled_size(5), width=scaled_s
 
 # --------------------
 
-discord_link_url = "https://raw.githubusercontent.com/dekuNukem/duckyPad/master/resources/discord_link.txt"
-
 def open_user_manual():
     webbrowser.open('https://github.com/dekuNukem/duckyPad-profile-autoswitcher/blob/master/README.md#user-manual')
 
 def open_discord():
-    try:
-        webbrowser.open(str(urllib.request.urlopen(discord_link_url).read().decode('utf-8')).split('\n')[0])
-    except Exception as e:
-        messagebox.showerror("Error", "Failed to open discord link!\n"+str(e))
+    webbrowser.open("https://discord.gg/4sJCBx5")
 
 def refresh_autoswitch():
     if config_dict['autoswitch_enabled']:
@@ -677,7 +672,7 @@ def fw_update_click(event, dp_info_dict):
     elif dp_info_dict['dp_model'] == DP_MODEL_DUCKYPAD_PRO:
         webbrowser.open('https://dekunukem.github.io/duckyPad-Pro/doc/fw_update.html')
 
-def app_update_click(event):
+def app_update_click(event=None):
     webbrowser.open('https://github.com/dekuNukem/duckyPad-profile-autoswitcher/releases/latest')
 
 def print_fw_update_label(dp_info_dict):
@@ -717,7 +712,7 @@ def is_dp_fw_valid(dp_info_dict):
         return FW_TOO_LOW
     if check_update.versiontuple(current_fw_str) > check_update.versiontuple(max_fw):
         if messagebox.askokcancel("Info", f"duckyPad firmware too new!\n\nCurrent: {current_fw_str}\nSupported: Between {min_fw} and {max_fw}.\n\nSee how to update this app?"):
-            app_update_click(None)
+            app_update_click()
         return FW_TOO_HIGH
     return FW_OK
 
