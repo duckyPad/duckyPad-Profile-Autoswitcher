@@ -53,20 +53,44 @@ print(new_folder_path)
 
 os.rename(output_folder_path, new_folder_path)
 
-f = open(os.path.join(new_folder_path, "run.sh"), "w")
-f.write("echo\n")
-f.write("echo Welcome to duckyPad Autoswitcher!\n")
-f.write("echo\n")
-f.write("echo To Connect, Please Authenticate.\n")
-f.write("echo\n")
-f.write("echo More info: duckyPad.com\n")
-f.write("echo\n")
-f.write(f"sudo ./{exe_file_name}\n")
-f.close()
+sh_content = f"""
+echo
+echo ---------------
+echo Welcome to duckyPad Autoswitcher!
+echo
+echo To Connect, Please Authenticate.
+echo
+echo If Blocked:
+echo "    Go to Settings > Privacy & Security"
+echo "    Scroll down, click \"Allow Anyway\""
+echo
+echo More info:
+echo 	https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html
+echo ---------------
+echo
+sudo ./{exe_file_name}
+"""
+
+with open(os.path.join(new_folder_path, "run.sh"), "w") as f:
+	f.write(sh_content)
 os.system(f"chmod a+x {os.path.join(new_folder_path, "run.sh")}")
+
+readme_content = """
+
+Launching this app on macOS:
+
+https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html
+
+Full User Manuals:
+
+duckyPad.com
+
+"""
+
+with open(os.path.join(new_folder_path, "README.txt"), "w") as f:
+	f.write(readme_content)
 
 zip_file_name = exe_file_name
 shutil.make_archive(exe_file_name, 'zip', new_folder_path)
 
 clean()
-
