@@ -64,10 +64,7 @@ Each rule contains **Application name**, **Window Title**, and the **Profile** t
 
 **`Jump-to Profile`**:
 
-* Can be Profile Number
-	* 1-indexed
-* Or Profile Name 
-	* **duckyPad Pro ONLY** (for now)
+* **Profile Name** to switch to when matched.
 	* Full Name
 	* Case Sensitive
 
