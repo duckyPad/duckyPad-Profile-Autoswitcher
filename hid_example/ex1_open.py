@@ -49,7 +49,6 @@ if duckypad_path is None:
     print("duckyPad not found!")
     exit()
 h.open_path(duckypad_path)
-h.set_nonblocking(1)
 print("\n\nSending to duckyPad:\n", pc_to_duckypad_buf)
 h.write(pc_to_duckypad_buf)
 h.close()
