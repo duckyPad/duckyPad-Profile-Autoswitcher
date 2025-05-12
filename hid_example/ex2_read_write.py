@@ -38,16 +38,6 @@ def get_duckypad_path():
         return dp_path
     return None
 
-# wait up to 0.5 seconds for response
-def hid_read():
-	read_start = time.time()
-	while time.time() - read_start <= 0.5:
-		result = h.read(DUCKYPAD_TO_PC_HID_BUF_SIZE)
-		if len(result) > 0:
-			return result
-		time.sleep(0.01)
-	return []
-
 def duckypad_hid_write(hid_buf_64b):
 	if len(hid_buf_64b) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
 		raise ValueError('PC-to-duckyPad buffer wrong size, should be exactly 64 Bytes')
@@ -55,9 +45,8 @@ def duckypad_hid_write(hid_buf_64b):
 	if duckypad_path is None:
 		raise OSError('duckyPad Not Found!')
 	h.open_path(duckypad_path)
-	h.set_nonblocking(1)
 	h.write(hid_buf_64b)
-	result = hid_read()
+	result = h.read(DUCKYPAD_TO_PC_HID_BUF_SIZE)
 	h.close()
 	return result
 
