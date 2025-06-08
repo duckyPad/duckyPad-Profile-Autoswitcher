@@ -342,9 +342,6 @@ def duckypad_goto_profile_by_name(profile_name):
         buffff[index+3] = ord(item)
     return duckypad_write_with_retry(buffff)
 
-def duckypad_goto_profile(profile_target):
-    return duckypad_goto_profile_by_name(profile_target)
-
 profile_switch_queue = []
 last_switch = None
 
@@ -366,14 +363,19 @@ def t1_worker():
         if len(profile_switch_queue) == 0:
             continue
         queue_head = profile_switch_queue[0]
-        result = duckypad_goto_profile(queue_head)
+        result = duckypad_goto_profile_by_name(queue_head)
         update_banner_text(result)
         if result == DP_WRITE_OK:
             print("switch success")
             profile_switch_queue.pop(0)
             last_switch = queue_head
             print(profile_switch_queue)
-        
+        elif result == DP_WRITE_BUSY:
+            print("duckyPad is busy! Retrying later")
+        elif result == DP_WRITE_FAIL:
+            print("duckyPad not found")
+            profile_switch_queue.clear()
+            
 def switch_queue_add(profile_target_name):
     global last_switch
     if profile_target_name is None or len(profile_target_name) == 0:
