@@ -353,7 +353,7 @@ def update_banner_text(switch_result):
         print("DUCKYPAD IS BUSY! Retrying later")
     elif switch_result == DP_WRITE_FAIL:
         connection_info_label.place(x=scaled_size(130), y=scaled_size(0))
-        connection_info_str.set(f"{dp_model_lookup.get(THIS_DUCKYPAD.device_type)} ({THIS_DUCKYPAD.info_dict.get('serial')}) Disappeared!\nI'll keep looking, or press Connect to select a new device.")
+        connection_info_str.set(f"duckyPad Disappeared!\nI'll keep looking, or press Connect to select a new device.")
     root.update()
 
 def t1_worker():
@@ -369,7 +369,6 @@ def t1_worker():
             print("switch success")
             profile_switch_queue.pop(0)
             last_switch = queue_head
-            print(profile_switch_queue)
         elif result == DP_WRITE_BUSY:
             print("duckyPad is busy! Retrying later")
         elif result == DP_WRITE_FAIL:
@@ -391,10 +390,6 @@ WINDOW_CHECK_FREQUENCY_MS = 100
 def update_current_app_and_title():
 
     root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
-
-    # if hid_common.is_hid_open is False and button_pressed is True:
-    #     connection_info_str.set("duckyPad not found")
-    #     connection_info_label.config(foreground='red')
 
     app_name, window_title = get_window.get_active_window()
     current_app_name_var.set("App name:      " + str(app_name))
