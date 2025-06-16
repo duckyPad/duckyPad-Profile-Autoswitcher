@@ -83,6 +83,10 @@ Multi duckyPad support
 Switch by name only
 double click to edit rule
 
+1.0.1
+June 16 2025
+Relaxed overly strict text-entry checks
+
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -90,7 +94,7 @@ UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
 
-THIS_VERSION_NUMBER = '1.0.0'
+THIS_VERSION_NUMBER = '1.0.1'
 MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
@@ -433,19 +437,6 @@ config_dict['autoswitch_enabled'] = True
 def clean_input(str_input):
     return str_input.strip()
 
-invalid_filename_characters = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
-
-def clean_input(str_input, len_limit=None):
-    result = ''.join([x for x in str_input if 32 <= ord(x) <= 126 and x not in invalid_filename_characters])
-    while('  ' in result):
-        result = result.replace('  ', ' ')
-    if len_limit is not None:
-        result = result[:len_limit]
-    return result.strip()
-
-def check_profile_name_or_number(raw_str):
-    return clean_input(raw_str)
-
 def make_rule_str(rule_dict):
     rule_str = ''
     if rule_dict['enabled']:
@@ -484,7 +475,7 @@ def save_rule_click(window, this_rule):
         rule_dict = {}
         rule_dict["app_name"] = clean_input(app_name_entrybox.get())
         rule_dict["window_title"] = clean_input(window_name_entrybox.get())
-        rule_dict["switch_to"] = check_profile_name_or_number(switch_to_entrybox.get())
+        rule_dict["switch_to"] = clean_input(switch_to_entrybox.get())
         rule_dict["enabled"] = True
         if rule_dict not in config_dict['rules_list']:
             config_dict['rules_list'].append(rule_dict)
@@ -494,7 +485,7 @@ def save_rule_click(window, this_rule):
     elif this_rule is not None:
         this_rule["app_name"] = clean_input(app_name_entrybox.get())
         this_rule["window_title"] = clean_input(window_name_entrybox.get())
-        this_rule["switch_to"] = check_profile_name_or_number(switch_to_entrybox.get())
+        this_rule["switch_to"] = clean_input(switch_to_entrybox.get())
         update_rule_list_display()
         save_config()
         window.destroy()
