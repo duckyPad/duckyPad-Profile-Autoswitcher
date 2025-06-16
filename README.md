@@ -22,21 +22,11 @@ Feel free to [review the files](./src), or run the source code directly with Pyt
 
 ![Alt text](resources/defender.png)
 
-### Mac
+### macOS / Linux
 
-[See instruction here!](./linux_macos_notes.md)
+[See instruction here!](https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html)
 
-### Linux
-
-[Download the latest source release here](https://github.com/dekuNukem/duckyPad-profile-autoswitcher/releases/latest)
-
-* Unzip & open a terminal at the directory
-* Install tkinter: `sudo apt install python3-tk`
-* Install dependencies: `sudo pip3 install -r requirements.txt`
-* Launch the app: `sudo DUCKYPAD_UI_SCALE=1 python3 ./duckypad_config.py`
-	* For High-DPI screens, adjust `DUCKYPAD_UI_SCALE` environment variable.
-
-If window detection isn't working, you might need to implement your own `get_list_of_all_windows()` and `get_active_window()` in `get_window.py`.
+[Linux only] If window detection isn't working, you might need to implement your own `get_list_of_all_windows()` and `get_active_window()` in `get_window.py`.
 
 ### Using the App
 
