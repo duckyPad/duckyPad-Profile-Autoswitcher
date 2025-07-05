@@ -87,6 +87,10 @@ double click to edit rule
 June 16 2025
 Relaxed overly strict text-entry checks
 
+1.0.2
+July 5 2025
+Fixed retry not working when duckypad is busy
+
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -94,7 +98,7 @@ UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
 
-THIS_VERSION_NUMBER = '1.0.1'
+THIS_VERSION_NUMBER = '1.0.2'
 MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
@@ -232,15 +236,30 @@ def hid_reconnect(dp_dict):
 
 def duckypad_write_with_retry(data_buf):
     try:
-        hid_txrx(data_buf, myh)
-        return DP_WRITE_OK
+        dp_response = hid_txrx(data_buf, myh)
+        if len(dp_response) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
+            return DP_WRITE_FAIL
+        if dp_response[2] == 0:
+            return DP_WRITE_OK
+        if dp_response[2] == 1:
+            return DP_WRITE_FAIL
+        if dp_response[2] == 2:
+            return DP_WRITE_BUSY
     except Exception as e:
         print(e)
 
     try:
         print("SECOND TRY")
         hid_reconnect(THIS_DUCKYPAD.info_dict)
-        hid_txrx(data_buf, myh)
+        dp_response = hid_txrx(data_buf, myh)
+        if len(dp_response) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
+            return DP_WRITE_FAIL
+        if dp_response[2] == 0:
+            return DP_WRITE_OK
+        if dp_response[2] == 1:
+            return DP_WRITE_FAIL
+        if dp_response[2] == 2:
+            return DP_WRITE_BUSY
         return DP_WRITE_OK
     except Exception as e:
         print(e)
