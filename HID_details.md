@@ -165,7 +165,7 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     0    |        0x05        |
 |     1    | Reserved |
 |     2    |        0x17        |
-|     3 ... 63    |   Profile Name String<br>**Case Sensitive**<br>Zero terminated  |
+|     3 ... 63    |   Profile Name String<br>**Case Sensitive**<br>ASCII encoded<br>Zero terminated  |
 
 💬 duckyPad to PC:
 
@@ -313,6 +313,59 @@ Wake up from sleep
 | 3 ... 63 | 0x00 |
 
 ----------
+
+### Dump Persistent Global Variables (0x18 / 24)
+
+💬 PC to duckyPad:
+
+|   Byte#  |   Description   |
+|:--------:|:---------------:|
+|     0    |        0x05        |
+|     1    | Reserved |
+|     2    |        0x18        |
+| 3 ... 63 | 0x00 |
+
+💬 duckyPad to PC:
+
+|   Byte#  |            Description           |
+|:--------:|:--------------------------------:|
+|     0    |    0x04    |
+|     1    |          Reserved         |
+|     2    | Status, 0 = SUCCESS |
+| 3-4 | GV0 |
+| 5-6 | GV1 |
+|....|....|
+| 61-62 | GV29 |
+
+
+### Write Persistent Global Variables (0x19 / 25)
+
+* You can write to multiple GVs at once
+* To select a GV to write, add 127 to its index. (aka setting its top bit to 1)
+* Leave rest of the payload to 0
+
+💬 PC to duckyPad:
+
+|   Byte#  |   Description   |
+|:--------:|:---------------:|
+|     0    |        0x05        |
+|     1    | Reserved |
+|     2    |        0x19        |
+| 3 | GV index + 127 |
+| 4 | Upper Byte |
+| 5 | Lower Byte |
+|6-8| Next GV (if needed)|
+|9-11| Next GV (if needed)|
+|....|....|
+
+💬 duckyPad to PC:
+
+|   Byte#  |            Description           |
+|:--------:|:--------------------------------:|
+|     0    |    0x04    |
+|     1    |          Reserved         |
+|     2    | Status, 0 = SUCCESS |
+
 
 ## Questions or Comments?
 
