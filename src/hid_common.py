@@ -77,7 +77,7 @@ def get_empty_pc_to_duckypad_buf():
 def hid_txrx(buf_64b, hid_obj):
     print("\n\nSending to duckyPad:\n", buf_64b)
     hid_obj.write(buf_64b)
-    duckypad_to_pc_buf = hid_obj.read(DUCKYPAD_TO_PC_HID_BUF_SIZE)
+    duckypad_to_pc_buf = hid_obj.read(DUCKYPAD_TO_PC_HID_BUF_SIZE, timeout_ms=500)
     print("\nduckyPad response:\n", duckypad_to_pc_buf)
     return duckypad_to_pc_buf
 

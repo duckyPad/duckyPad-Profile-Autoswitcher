@@ -91,6 +91,9 @@ Relaxed overly strict text-entry checks
 July 5 2025
 Fixed retry not working when duckypad is busy
 
+1.0.3
+July 30 2025
+Added timeout in HID read
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -98,7 +101,7 @@ UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
 
-THIS_VERSION_NUMBER = '1.0.2'
+THIS_VERSION_NUMBER = '1.0.3'
 MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
