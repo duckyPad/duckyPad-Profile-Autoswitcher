@@ -14,6 +14,9 @@ import get_window
 import check_update
 from platformdirs import *
 import subprocess
+import argparse
+import pystray
+from PIL import Image, ImageDraw
 
 def open_mac_linux_instruction():
     webbrowser.open('https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html')
@@ -23,6 +26,14 @@ def is_root():
 
 def ensure_dir(dir_path):
     os.makedirs(dir_path, exist_ok=1)
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='duckyPad Profile Autoswitcher')
+parser.add_argument('--minimized', action='store_true', help='Start minimized to system tray')
+args = parser.parse_args()
+
+# Global variable for system tray
+tray_icon = None
 
 # xhost +;sudo python3 duckypad_autoprofile.py 
 
@@ -281,10 +292,69 @@ def next_prof_click():
     this_result = duckypad_write_with_retry(buffff)
     update_banner_text(this_result)
 
+# System tray functionality
+def create_tray_image():
+    """Create a simple icon for the system tray"""
+    try:
+        # Try to load the application icon
+        icon_path = os.path.join(os.path.dirname(__file__), '_icon.ico')
+        if os.path.exists(icon_path):
+            return Image.open(icon_path)
+    except Exception as e:
+        print(f"Could not load icon file: {e}")
+    
+    # Fallback: create a simple programmatic icon
+    width = 64
+    height = 64
+    image = Image.new('RGB', (width, height), 'blue')
+    dc = ImageDraw.Draw(image)
+    dc.rectangle(
+        [(width // 4, height // 4), (width * 3 // 4, height * 3 // 4)],
+        fill='white'
+    )
+    return image
+
+def show_window():
+    """Show the main window and bring it to front"""
+    root.deiconify()
+    root.lift()
+    root.focus_force()
+
+def hide_window():
+    """Hide the main window"""
+    root.withdraw()
+
+def quit_app(icon=None, item=None):
+    """Quit the application"""
+    global tray_icon
+    if tray_icon is not None:
+        tray_icon.stop()
+    root.quit()
+
+def on_closing():
+    """Handle window close event - minimize to tray instead of closing"""
+    hide_window()
+
+def setup_tray_icon():
+    """Setup the system tray icon"""
+    global tray_icon
+    icon_image = create_tray_image()
+    menu = pystray.Menu(
+        pystray.MenuItem('Show', show_window, default=True),
+        pystray.MenuItem('Quit', quit_app)
+    )
+    tray_icon = pystray.Icon("duckyPad", icon_image, "duckyPad Autoswitcher", menu)
+    
+def run_tray_icon():
+    """Run the system tray icon in a separate thread"""
+    if tray_icon is not None:
+        tray_icon.run()
+
 root = Tk()
 root.title("duckyPad autoswitcher " + THIS_VERSION_NUMBER)
 root.geometry(f"{MAIN_WINDOW_WIDTH}x{MAIN_WINDOW_HEIGHT}")
 root.resizable(width=FALSE, height=FALSE)
+root.protocol("WM_DELETE_WINDOW", on_closing)
 
 # --------------------
 
@@ -771,6 +841,17 @@ t1.start()
 
 if contains_jump_by_number():
     messagebox.showinfo("Info", "Profiles are now referenced BY NAME (case sensitive) instead of number.\n\nMake sure to update the rules.")
+
+# Setup system tray icon
+setup_tray_icon()
+tray_thread = threading.Thread(target=run_tray_icon, daemon=True)
+tray_thread.start()
+
+# Start minimized if requested
+if args.minimized:
+    root.withdraw()  # Hide window on startup
+else:
+    root.deiconify()  # Show window normally
 
 root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
 root.mainloop()
