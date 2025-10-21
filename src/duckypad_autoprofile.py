@@ -296,8 +296,16 @@ def next_prof_click():
 def create_tray_image():
     """Create a simple icon for the system tray"""
     try:
+        # Get the base path - works for both development and PyInstaller bundle
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable
+            base_path = sys._MEIPASS
+        else:
+            # Running as script
+            base_path = os.path.dirname(__file__)
+        
         # Try to load the application icon
-        icon_path = os.path.join(os.path.dirname(__file__), '_icon.ico')
+        icon_path = os.path.join(base_path, '_icon.ico')
         if os.path.exists(icon_path):
             return Image.open(icon_path)
     except Exception as e:

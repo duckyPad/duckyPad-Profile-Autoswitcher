@@ -39,7 +39,12 @@ if THIS_VERSION is None:
 	exit()
 
 clean(additional='duckypad_*.zip')
-PyInstaller.__main__.run(['duckypad_autoprofile.py','--icon=_icon.ico','--noconsole'])
+PyInstaller.__main__.run([
+    'duckypad_autoprofile.py',
+    '--icon=_icon.ico',
+    '--noconsole',
+    '--add-data=_icon.ico;.'
+])
 
 output_folder_path = os.path.join('.', "dist")
 original_name = os.path.join(output_folder_path, "duckypad_autoprofile")
