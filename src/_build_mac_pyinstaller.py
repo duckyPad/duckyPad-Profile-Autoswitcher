@@ -40,9 +40,8 @@ if THIS_VERSION is None:
 
 exe_file_name = f"duckypad_autoprofile_{THIS_VERSION.replace('.', '_')}_macOS_ARM"
 
-# --noconsole
 clean(additional='duckypad*.zip')
-PyInstaller.__main__.run(['duckypad_autoprofile.py','--icon=_icon.icns', '--onefile', f"--name={exe_file_name}"])
+PyInstaller.__main__.run(['duckypad_autoprofile.py','--icon=_icon.icns', '--onefile', '--noconsole', f"--name={exe_file_name}"])
 
 
 output_folder_path = os.path.join('.', "dist")
