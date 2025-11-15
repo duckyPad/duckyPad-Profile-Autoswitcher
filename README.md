@@ -78,6 +78,32 @@ Back to the main window, duckyPad should now automatically switch profile once a
 
 That's pretty much it! Just leave the app running and duckyPad will do its thing!
 
+## System Tray Support
+
+The app can minimize to the system tray instead of closing completely.
+
+* When you close the main window, it will minimize to the system tray.
+
+* Click the system tray icon to show the window again.
+
+* Right-click the system tray icon and select "Quit" to exit the application completely.
+
+### Start Minimized to System Tray
+
+You can start the app minimized to the system tray using the `--minimized` command-line argument:
+
+**Windows:**
+```
+duckypad_autoprofile.exe --minimized
+```
+
+**macOS / Linux:**
+```
+python3 duckypad_autoprofile.py --minimized
+```
+
+This is useful for auto-starting the app on system boot without showing the window.
+
 ## Launch Autoswitcher on Windows Startup
 
 The easiest way is to place a shortcut in the Startup folder:
@@ -86,7 +112,9 @@ The easiest way is to place a shortcut in the Startup folder:
 
 * Press `Win+R` to open the `Run...` dialog, enter `shell:startup` and click OK. This will open the Startup folder.
 
-* Right click inside the window, and click "Paste Shortcut". 
+* Right click inside the window, and click "Paste Shortcut".
+
+* (Optional) Edit the shortcut properties and add `--minimized` to the Target field after the executable path to start minimized to system tray. 
 
 ## HID Command Protocol
 

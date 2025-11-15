@@ -1,9 +1,12 @@
 hidapi
 platformdirs
+pystray
+pillow
 
 # Windows-specific
 ctwin32 ; sys_platform == 'win32'
 pygetwindow ; sys_platform == 'win32'
+pyinstaller ; sys_platform == 'win32'
 
 # macOS-specific
 pyobjc ; sys_platform == 'darwin'  # Needed for AppKit and Quartz
