@@ -72,10 +72,6 @@ Finally, try [this script](hid_example/ex2_read_write.py) to send duckyPad a com
 
 You can use it as the starting point of your own program!
 
-### Using Bash (Linux only)
-
-[This script](hid_example/ex3_bash.sh) talks to duckyPad with shell utils without Python.
-
 ## HID Packet Structure
 
 ### PC-to-duckyPad
@@ -112,8 +108,8 @@ duckyPad will reply with a **fixed 64-byte** response:
 |:--------:|:---------------:|
 |     0    |        0x05        |
 |     1    | Reserved |
-|     2    |        0x00        |
-| 3 ... 63 |        0x00        |
+|     2    |        0        |
+| 3 ... 63 |        0        |
 
 💬 duckyPad to PC:
 
@@ -128,8 +124,11 @@ duckyPad will reply with a **fixed 64-byte** response:
 |    6   |     Hardware revision<br>20 = duckyPad<br>24 = duckyPad Pro     |
 | 7 - 10 | Serial number (unsigned 32bit) |
 |   11   |     Current profile number     |
-|   12   |     is_sleeping  |
-| 13-63  |              0x00                 |
+|   12   |     `is_sleeping`  |
+| 13 | `is_rtc_valid` |
+| 14 | Current UTC Offset |
+| 15-18 | UNIX timestamp |
+| 19-63  |              0                 |
 
 -----------
 
@@ -143,7 +142,7 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     1    | Reserved |
 |     2    |        0x01        |
 |     3    |   Profile number<br>(**1-indexed**)    |
-| 4 ... 63 |        0x00        |
+| 4 ... 63 |        0        |
 
 💬 duckyPad to PC:
 
@@ -152,11 +151,10 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     0    |    0x04    |
 |     1    |          Reserved         |
 |     2    | Status, 0 = SUCCESS |
-| 3 ... 63 |             0x00             |
 
 -----------
 
-### Goto Profile by **NAME** (0x17 / 23)
+### Goto Profile by **NAME** (0x17)
 
 💬 PC to duckyPad:
 
@@ -174,7 +172,6 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     0    |    0x04    |
 |     1    |          Reserved         |
 |     2    | Status, 0 = SUCCESS |
-| 3 ... 63 |             0x00             |
 
 -----------
 
@@ -187,7 +184,7 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     0    |        0x05        |
 |     1    | Reserved |
 |     2    |        0x02        |
-| 3 ... 63 |        0x00        |
+| 3 ... 63 |        0        |
 
 💬 duckyPad to PC:
 
@@ -196,7 +193,6 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     0    |    0x04    |
 |     1    |          Reserved         |
 |     2    | Status, 0 = SUCCESS |
-| 3 ... 63 |             0x00             |
 
 
 -----------
@@ -210,7 +206,7 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     0    |        0x05        |
 |     1    | Reserved |
 |     2    |        0x03        |
-| 3 ... 63 |        0x00        |
+| 3 ... 63 |        0        |
 
 💬 duckyPad to PC:
 
@@ -219,7 +215,6 @@ duckyPad will reply with a **fixed 64-byte** response:
 |     0    |    0x04    |
 |     1    |          Reserved         |
 |     2    | Status, 0 = SUCCESS |
-| 3 ... 63 |             0x00             |
 
 -----------
 
@@ -238,11 +233,19 @@ Change color of a single LED.
 |     4    |Red  |
 |     5    |Green  |
 |     6    |Blue  |
-| 7 ... 63 |        0x00        |
+| 7 ... 63 |        0        |
+
+💬 duckyPad to PC:
+
+|   Byte#  |            Description           |
+|:--------:|:--------------------------------:|
+|     0    |    0x04    |
+|     1    |          Reserved         |
+|     2    | Status, 0 = SUCCESS |
 
 -----------
 
-### Software reset (0x14 / 20)
+### Software reset (0x14)
 
 Perform a software reset.
 
@@ -254,7 +257,7 @@ Perform a software reset.
 |     1    | Reserved |
 |     2    |        0x14        |
 |     3    |        Reboot options<br>0 = Normal<br>1 = Reboot into USB MSC mode  |
-| 3 ... 63 | 0x00 |
+| 3 ... 63 | 0 |
 
 💬 duckyPad to PC:
 
@@ -264,7 +267,7 @@ Nothing, because it's rebooting!
 
 -----------
 
-### Sleep (0x15 / 21)
+### Sleep (0x15)
 
 Make duckyPad go to sleep.
 
@@ -277,7 +280,7 @@ Screen and RGB LEDs are turned off.
 |     0    |        0x05        |
 |     1    | Reserved |
 |     2    |        0x15        |
-| 3 ... 63 | 0x00 |
+| 3 ... 63 | 0 |
 
 💬 duckyPad to PC:
 
@@ -286,11 +289,10 @@ Screen and RGB LEDs are turned off.
 |     0    |    0x04    |
 |     1    |          Reserved         |
 |     2    | Status, 0 = SUCCESS |
-| 3 ... 63 | 0x00 |
 
 -----------
 
-### Wake up (0x16 / 22)
+### Wake up (0x16)
 
 Wake up from sleep
 
@@ -301,7 +303,7 @@ Wake up from sleep
 |     0    |        0x05        |
 |     1    | Reserved |
 |     2    |        0x16        |
-| 3 ... 63 | 0x00 |
+| 3 ... 63 | 0 |
 
 💬 duckyPad to PC:
 
@@ -310,11 +312,10 @@ Wake up from sleep
 |     0    |    0x04    |
 |     1    |          Reserved         |
 |     2    | Status, 0 = SUCCESS |
-| 3 ... 63 | 0x00 |
 
 ----------
 
-### Dump Persistent Global Variables (0x18 / 24)
+### Dump Persistent Global Variables (0x18)
 
 💬 PC to duckyPad:
 
@@ -323,7 +324,7 @@ Wake up from sleep
 |     0    |        0x05        |
 |     1    | Reserved |
 |     2    |        0x18        |
-| 3 ... 63 | 0x00 |
+| 3 ... 63 | 0 |
 
 💬 duckyPad to PC:
 
@@ -338,7 +339,7 @@ Wake up from sleep
 | 61-62 | GV29 |
 
 
-### Write Persistent Global Variables (0x19 / 25)
+### Write Persistent Global Variables (0x19)
 
 * You can write to multiple GVs at once
 * To select a GV to write, add 127 to its index. (aka setting its top bit to 1)
@@ -357,6 +358,27 @@ Wake up from sleep
 |6-8| Next GV (if needed)|
 |9-11| Next GV (if needed)|
 |....|....|
+
+💬 duckyPad to PC:
+
+|   Byte#  |            Description           |
+|:--------:|:--------------------------------:|
+|     0    |    0x04    |
+|     1    |          Reserved         |
+|     2    | Status, 0 = SUCCESS |
+
+### Update RTC (0x1A) (under construction)
+
+💬 PC to duckyPad:
+
+|   Byte#  |   Description   |
+|:--------:|:---------------:|
+|     0    |        0x05        |
+|     1    | Reserved |
+|     2    |        0x1A        |
+| 3 - 6 | UNIX Timestamp|
+| 7 | UTC Offset |
+|8 ... 63|0|
 
 💬 duckyPad to PC:
 
