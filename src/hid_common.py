@@ -111,7 +111,7 @@ def i16_to_u8_list_be(value):
         (value >> 8) & 0xFF,
         value & 0xFF ]
 
-def duckypad_sync_rtc(hid_path):
+def duckypad_sync_rtc(hid_obj):
     pc_to_duckypad_buf = get_empty_pc_to_duckypad_buf()
     unix_ts, utc_offset_minutes = get_timestamp_and_utc_offset()
     unix_ts_u8_list = u32_to_u8_list_be(unix_ts)
@@ -124,10 +124,7 @@ def duckypad_sync_rtc(hid_path):
     pc_to_duckypad_buf[7] = utc_offset_u8_list[0]
     pc_to_duckypad_buf[8] = utc_offset_u8_list[1]
     print(pc_to_duckypad_buf)
-    myh = hid.device()
-    myh.open_path(hid_path)
-    result = hid_txrx(pc_to_duckypad_buf, myh)
-    myh.close()
+    result = hid_txrx(pc_to_duckypad_buf, hid_obj)
     print("duckypad_sync_rtc:", result)
 
 DP_MODEL_OG_DUCKYPAD = 20

@@ -191,9 +191,10 @@ def duckypad_connect():
 
     if dpp_is_fw_compatible(user_selected_dp) is False:
         return
-
     if open_hid_path(user_selected_dp, myh) is False:
         return
+    
+    duckypad_sync_rtc(myh)
     THIS_DUCKYPAD.device_type = user_selected_dp['dp_model']
     THIS_DUCKYPAD.info_dict = user_selected_dp
     connection_info_str.set(f"Connected!      Model: {dp_model_lookup.get(THIS_DUCKYPAD.device_type)}      Serial: {THIS_DUCKYPAD.info_dict.get('serial')}      Firmware: {THIS_DUCKYPAD.info_dict.get('fw_version')}")
@@ -231,15 +232,15 @@ HID_COMMAND_GOTO_PROFILE_BY_NAME = 23
 def hid_reconnect(dp_dict):
     dp_list = scan_duckypads() # scan again because HID path might have changed
     if dp_list is None or len(dp_list) == 0:
-        return
+        return False
     new_info_dict = []
     for this_dp in dp_list:
         if this_dp["serial"] == dp_dict["serial"]:
             new_info_dict.append(this_dp)
     if len(new_info_dict) == 0:
-        return
+        return False
     print("hid_reconnect:", new_info_dict[0])
-    open_hid_path(new_info_dict[0], myh)
+    return open_hid_path(new_info_dict[0], myh)
 
 def duckypad_write_with_retry(data_buf):
     try:
@@ -398,12 +399,12 @@ def t1_worker():
         if result == DP_WRITE_OK:
             print("switch success")
             profile_switch_queue.pop(0)
-            last_switch = queue_head
         elif result == DP_WRITE_BUSY:
             print("duckyPad is busy! Retrying later")
         elif result == DP_WRITE_FAIL:
             print("duckyPad not found")
             profile_switch_queue.clear()
+        last_switch = queue_head
             
 def switch_queue_add(profile_target_name):
     global last_switch
@@ -776,11 +777,19 @@ t1.start()
 if contains_jump_by_number():
     messagebox.showinfo("Info", "Profiles are now referenced BY NAME (case sensitive) instead of number.\n\nMake sure to update the rules.")
 
-RTC_SYNC_FREQ_SECONDS = 5
+RTC_SYNC_FREQ_SECONDS = 30
 
 def sync_rtc():
     root.after(RTC_SYNC_FREQ_SECONDS*1000, sync_rtc)
-    print("hello world")
+    try:
+        if THIS_DUCKYPAD.info_dict is not None:
+            duckypad_sync_rtc(myh)
+        return
+    except Exception as e:
+        print("sync_rtc:", e)
+    update_banner_text(DP_WRITE_FAIL)
+    if hid_reconnect(THIS_DUCKYPAD.info_dict):
+        update_banner_text(DP_WRITE_OK)
 
 root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
 root.after(RTC_SYNC_FREQ_SECONDS*1000, sync_rtc)
