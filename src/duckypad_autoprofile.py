@@ -105,11 +105,10 @@ UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
 
-THIS_VERSION_NUMBER = '1.0.3'
+THIS_VERSION_NUMBER = '1.1.0'
 MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
-fw_update_checked = False
 
 THIS_DUCKYPAD = dp_type()
 
@@ -165,18 +164,17 @@ def ask_user_to_select_a_duckypad(dp_info_list):
     return selected_duckypad.get()
 
 def duckypad_connect():
-    global fw_update_checked
     all_dp_info_list = scan_duckypads()
     if all_dp_info_list is None:
         if 'darwin' in sys.platform and messagebox.askokcancel("Info", "duckyPad detected, but I need additional permissions!\n\nClick OK for instructions"):
             open_mac_linux_instruction()
         elif 'linux' in sys.platform:
             messagebox.showinfo("Info", "duckyPad detected, but please run me in sudo!")
-        return
+        return False
     
     if len(all_dp_info_list) == 0:
         connection_info_str.set("duckyPad not found")
-        return
+        return False
 
     selected_index = -1
     if len(all_dp_info_list) == 1:
@@ -184,20 +182,22 @@ def duckypad_connect():
     else:
         selected_index = ask_user_to_select_a_duckypad(all_dp_info_list)
     if selected_index == -1:
-        return
+        return False
     
     user_selected_dp = all_dp_info_list[selected_index]
     print("user selected:", user_selected_dp)
 
     if dpp_is_fw_compatible(user_selected_dp) is False:
-        return
+        return False
     if open_hid_path(user_selected_dp, myh) is False:
-        return
+        return False
     
     duckypad_sync_rtc(myh)
+    time.sleep(0.1)
     THIS_DUCKYPAD.device_type = user_selected_dp['dp_model']
     THIS_DUCKYPAD.info_dict = user_selected_dp
     connection_info_str.set(f"Connected!      Model: {dp_model_lookup.get(THIS_DUCKYPAD.device_type)}      Serial: {THIS_DUCKYPAD.info_dict.get('serial')}      Firmware: {THIS_DUCKYPAD.info_dict.get('fw_version')}")
+    return True
 
 def open_hid_path(dp_info_dict, hid_obj):
     hid_obj.close()
@@ -229,19 +229,6 @@ HID_COMMAND_PREV_PROFILE = 2
 HID_COMMAND_NEXT_PROFILE = 3
 HID_COMMAND_GOTO_PROFILE_BY_NAME = 23
 
-def hid_reconnect(dp_dict):
-    dp_list = scan_duckypads() # scan again because HID path might have changed
-    if dp_list is None or len(dp_list) == 0:
-        return False
-    new_info_dict = []
-    for this_dp in dp_list:
-        if this_dp["serial"] == dp_dict["serial"]:
-            new_info_dict.append(this_dp)
-    if len(new_info_dict) == 0:
-        return False
-    print("hid_reconnect:", new_info_dict[0])
-    return open_hid_path(new_info_dict[0], myh)
-
 def duckypad_write_with_retry(data_buf):
     try:
         dp_response = hid_txrx(data_buf, myh)
@@ -258,7 +245,7 @@ def duckypad_write_with_retry(data_buf):
 
     try:
         print("SECOND TRY")
-        hid_reconnect(THIS_DUCKYPAD.info_dict)
+        duckypad_connect()
         dp_response = hid_txrx(data_buf, myh)
         if len(dp_response) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
             return DP_WRITE_FAIL
@@ -788,7 +775,7 @@ def sync_rtc():
     except Exception as e:
         print("sync_rtc:", e)
     update_banner_text(DP_WRITE_FAIL)
-    if hid_reconnect(THIS_DUCKYPAD.info_dict):
+    if duckypad_connect():
         update_banner_text(DP_WRITE_OK)
 
 root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
