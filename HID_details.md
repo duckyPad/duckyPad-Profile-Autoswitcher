@@ -16,13 +16,11 @@ duckyPad enumerates as 4 HID devices:
 
 * Keypad with Media Keys
 
-* Counted Buffer
+* Counted Buffer 
 
-The first three is controlled by duckyScript, while the last one is used for two-way communication between duckyPad and PC.
+	* Used for two-way communication between DP and PC
 
 ------
-
-duckyPad has the following HID properties:
 
 **Vendor ID**: 0x0483 (1155)
 
@@ -42,7 +40,7 @@ The HID command buffer is **64 Bytes**, meaning you must send a fixed 64B packet
 
 I used [`cython-hidapi`](https://github.com/trezor/cython-hidapi) Python library for HID communication. You can install it with `pip3 install hidapi`.
 
-A couple of [example scripts](hid_example) are provided.
+A couple of [example scripts](https://github.com/duckyPad/duckyPad-Profile-Autoswitcher/tree/master/hid_example) are provided.
 
 ### List HID Devices
 
@@ -64,11 +62,11 @@ vendor_id : 1155
 
 ### Write to duckyPad
 
-Try [this script](hid_example/ex1_open.py) to open duckyPad HID device and write a 64-byte packet asking it to change to the next profile.
+Try [this script](hid_example/ex1_open.py) to send a command to go to the next profile.
 
 ### Read from duckyPad
 
-Finally, try [this script](hid_example/ex2_read_write.py) to send duckyPad a command, AND receive its response.
+Finally, [try this](hid_example/ex2_read_write.py) to send duckyPad a command, AND receive its response.
 
 You can use it as the starting point of your own program!
 
@@ -98,6 +96,10 @@ duckyPad will reply with a **fixed 64-byte** response:
 
 * `BUSY` is returned if duckyPad is executing a script, or in a menu.
 
+### Endianness
+
+All multi-byte values are **Big-Endian**.
+
 ## HID Commands
 
 ### Query Info (0x00)
@@ -122,13 +124,13 @@ duckyPad will reply with a **fixed 64-byte** response:
 |    4   |     Firmware version Minor     |
 |    5   |     Firmware version Patch     |
 |    6   |     Hardware revision<br>20 = duckyPad<br>24 = duckyPad Pro     |
-| 7 - 10 | Serial number (unsigned 32bit) |
+| 7-10 | Serial number (unsigned 32bit) |
 |   11   |     Current profile number     |
 |   12   |     `is_sleeping`  |
 | 13 | `is_rtc_valid` |
-| 14 | Current UTC Offset |
-| 15-18 | UNIX timestamp |
-| 19-63  |              0                 |
+| 14-15 | UTC Offset<br>(Minutes)|
+| 16-19 | UNIX timestamp |
+| 20-63  |              0                 |
 
 -----------
 
@@ -367,7 +369,7 @@ Wake up from sleep
 |     1    |          Reserved         |
 |     2    | Status, 0 = SUCCESS |
 
-### Update RTC (0x1A) (under construction)
+### Update RTC (0x1A)
 
 💬 PC to duckyPad:
 
@@ -376,9 +378,9 @@ Wake up from sleep
 |     0    |        0x05        |
 |     1    | Reserved |
 |     2    |        0x1A        |
-| 3 - 6 | UNIX Timestamp|
-| 7 | UTC Offset |
-|8 ... 63|0|
+| 3-6 | UNIX Timestamp|
+| 7-8 | UTC Offset<br>(Minutes) |
+|9 ... 63|0|
 
 💬 duckyPad to PC:
 
