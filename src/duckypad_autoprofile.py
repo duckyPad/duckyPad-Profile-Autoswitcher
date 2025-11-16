@@ -94,6 +94,10 @@ Fixed retry not working when duckypad is busy
 1.0.3
 July 30 2025
 Added timeout in HID read
+
+1.1.0
+Nov 16 2025
+
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -772,5 +776,12 @@ t1.start()
 if contains_jump_by_number():
     messagebox.showinfo("Info", "Profiles are now referenced BY NAME (case sensitive) instead of number.\n\nMake sure to update the rules.")
 
+RTC_SYNC_FREQ_SECONDS = 5
+
+def sync_rtc():
+    root.after(RTC_SYNC_FREQ_SECONDS*1000, sync_rtc)
+    print("hello world")
+
 root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
+root.after(RTC_SYNC_FREQ_SECONDS*1000, sync_rtc)
 root.mainloop()
