@@ -240,8 +240,9 @@ def duckypad_write_with_retry(data_buf):
             return DP_WRITE_FAIL
         if dp_response[2] == 2:
             return DP_WRITE_BUSY
+        return DP_WRITE_OK
     except Exception as e:
-        print(e)
+        print("DP write first try:", e)
 
     try:
         print("SECOND TRY")
