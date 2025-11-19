@@ -97,7 +97,8 @@ Added timeout in HID read
 
 1.1.0
 Nov 16 2025
-
+Sets RTC automatically
+Better handling of switching to profiles that don't exist
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
