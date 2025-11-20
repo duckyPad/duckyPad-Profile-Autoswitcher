@@ -10,13 +10,13 @@ This app allows your duckyPad to **switch profiles automatically** based on **cu
 
 ### Windows
 
-[Download the latest release here](https://github.com/dekuNukem/duckyPad-profile-autoswitcher/releases/latest)
+* 👉 [Download the latest release](https://github.com/dekuNukem/duckyPad-profile-autoswitcher/releases/latest)
 
-Extract the `.zip` file and launch the app by clicking `duckypad_autoprofile.exe`:
+Extract `.zip` file and launch the app by clicking `duckypad_autoprofile.exe`:
 
 ![Alt text](resources/app.png)
 
-Windows might complain about unsigned app. Click `More info` and then `Run anyway`.
+Windows might complain. Click `More info` and `Run anyway`.
 
 Feel free to [review the files](./src), or run the source code directly with Python.
 
@@ -24,9 +24,9 @@ Feel free to [review the files](./src), or run the source code directly with Pyt
 
 ### macOS / Linux
 
-[See instruction here!](https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html)
+* 👉 [See instructions here!](https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html)
 
-[Linux only] If window detection isn't working, you might need to implement your own `get_list_of_all_windows()` and `get_active_window()` in `get_window.py`.
+* **[LINUX ONLY]** Window detection not working? You might need to implement your own `get_list_of_all_windows()` and `get_active_window()` in `get_window.py`.
 
 ### Using the App
 
@@ -47,16 +47,14 @@ A new window should pop up:
 Each rule contains **Application name**, **Window Title**, and the **Profile** to switch to.
 
 **`App name`** and **`Window Title`**:
-
-* Type in the keyword you want to match
-
-* NOT case sensitive
+* Type the keyword you want to match
+* **NOT** case sensitive
 
 **`Jump-to Profile`**:
 
 * **Profile Name** to switch to when matched.
 	* Full Name
-	* Case Sensitive
+	* **Case Sensitive**
 
 Click `Save` when done.
 

@@ -1,5 +1,5 @@
 """
-duckyPad HID example: HID read AND write
+duckyPad HID example: Set RTC
 
 https://github.com/dekuNukem/duckyPad-profile-autoswitcher/blob/master/HID_details.md
 """
@@ -52,7 +52,7 @@ def duckypad_hid_write(hid_buf_64b):
 	return result
 
 def get_timestamp_and_utc_offset():
-    now = datetime.now().astimezone()  # Local time with timezone info
+    now = datetime.now().astimezone()
     unix_timestamp = int(now.timestamp())
     utc_offset_minutes = int(now.utcoffset().total_seconds() // 60)
     return unix_timestamp, utc_offset_minutes
@@ -70,13 +70,15 @@ def i16_to_u8_list_be(value):
         (value >> 8) & 0xFF,
         value & 0xFF ]
 
-
 unix_ts, utc_offset_minutes = get_timestamp_and_utc_offset()
 
 unix_ts_u8_list = u32_to_u8_list_be(unix_ts)
 utc_offset_u8_list = i16_to_u8_list_be(utc_offset_minutes)
 
+print(f"\n\n--------\nUNIX Timestamp: {unix_ts}\nUTC Offset (Minutes): {utc_offset_minutes}\n-----------\n")
+
 pc_to_duckypad_buf = [0] * PC_TO_DUCKYPAD_HID_BUF_SIZE
+
 pc_to_duckypad_buf[0] = 5   # HID Usage ID, always 5
 pc_to_duckypad_buf[1] = 0   # Reserved
 pc_to_duckypad_buf[2] = 0x1A    # Command: Set RTC
@@ -89,8 +91,8 @@ pc_to_duckypad_buf[6] = unix_ts_u8_list[3]
 pc_to_duckypad_buf[7] = utc_offset_u8_list[0]
 pc_to_duckypad_buf[8] = utc_offset_u8_list[1]
 
-print(f"\n\n--------\nUNIX Timestamp: {unix_ts}\nUTC Offset (Minutes): {utc_offset_minutes}\n-----------\n")
-
 print("Sending to duckyPad:\n", pc_to_duckypad_buf)
 duckypad_to_pc_buf = duckypad_hid_write(pc_to_duckypad_buf)
 print("\nduckyPad response:\n", duckypad_to_pc_buf)
+
+print("\nA clock icon should appear on top-left corner")
