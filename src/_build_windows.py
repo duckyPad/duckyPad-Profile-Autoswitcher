@@ -38,15 +38,39 @@ if THIS_VERSION is None:
 	print('could not find version number!')
 	exit()
 
-# --noconsole
 clean(additional='duckypad_*.zip')
-PyInstaller.__main__.run(['duckypad_autoprofile.py','--icon=_icon.ico'])
+
+# Build normal version (no console)
+PyInstaller.__main__.run([
+    'duckypad_autoprofile.py',
+    '--icon=_icon.ico',
+    '--noconsole',
+    '--add-data=_icon.ico;.'
+])
 
 output_folder_path = os.path.join('.', "dist")
 original_name = os.path.join(output_folder_path, "duckypad_autoprofile")
 new_name = os.path.join(output_folder_path, "duckypad_autoprofile_" + THIS_VERSION + "_win10_x64")
 
 os.rename(original_name, new_name)
+
+# Build debug version (with console)
+PyInstaller.__main__.run([
+    'duckypad_autoprofile.py',
+    '--icon=_icon.ico',
+    '--console',
+    '--add-data=_icon.ico;.',
+    '--name=duckypad_autoprofile_debug'
+])
+
+# Copy debug executable into the main distribution folder
+debug_exe_src = os.path.join(output_folder_path, "duckypad_autoprofile_debug", "duckypad_autoprofile_debug.exe")
+debug_exe_dst = os.path.join(new_name, "duckypad_autoprofile_debug.exe")
+shutil.copy2(debug_exe_src, debug_exe_dst)
+
+# Clean up the separate debug folder
+shutil.rmtree(os.path.join(output_folder_path, "duckypad_autoprofile_debug"))
+
 zip_file_name = "duckypad_autoprofile_" + THIS_VERSION + "_win10_x64"
 shutil.make_archive(zip_file_name, 'zip', new_name)
 clean()
