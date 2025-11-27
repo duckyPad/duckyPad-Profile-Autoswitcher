@@ -1,6 +1,9 @@
 import hid
 import sys
-import time
+from datetime import datetime
+import threading
+
+hid_txrx_lock = threading.Lock()
 
 dp20_pid = 0xd11c
 dpp_pid = 0xd11d
@@ -74,12 +77,55 @@ def get_empty_pc_to_duckypad_buf():
     ptd_buf[0] = 5   # HID Usage ID
     return ptd_buf
 
-def hid_txrx(buf_64b, hid_obj):
+def hid_txrx_nolock(buf_64b, hid_obj):
     print("\n\nSending to duckyPad:\n", buf_64b)
     hid_obj.write(buf_64b)
     duckypad_to_pc_buf = hid_obj.read(DUCKYPAD_TO_PC_HID_BUF_SIZE, timeout_ms=500)
     print("\nduckyPad response:\n", duckypad_to_pc_buf)
     return duckypad_to_pc_buf
+
+def hid_txrx(buf_64b, hid_obj):
+    if not hid_txrx_lock.acquire(timeout=2):
+        return None
+    try:
+        return hid_txrx_nolock(buf_64b, hid_obj)
+    finally:
+        hid_txrx_lock.release()
+
+def get_timestamp_and_utc_offset():
+    now = datetime.now().astimezone()  # Local time with timezone info
+    unix_timestamp = int(now.timestamp())
+    utc_offset_minutes = int(now.utcoffset().total_seconds() // 60)
+    return unix_timestamp, utc_offset_minutes
+
+def u32_to_u8_list_be(value):
+    return [
+        (value >> 24) & 0xFF,
+        (value >> 16) & 0xFF,
+        (value >> 8) & 0xFF,
+        value & 0xFF]
+
+def i16_to_u8_list_be(value):
+    value &= 0xFFFF
+    return [
+        (value >> 8) & 0xFF,
+        value & 0xFF ]
+
+def duckypad_sync_rtc(hid_obj):
+    pc_to_duckypad_buf = get_empty_pc_to_duckypad_buf()
+    unix_ts, utc_offset_minutes = get_timestamp_and_utc_offset()
+    unix_ts_u8_list = u32_to_u8_list_be(unix_ts)
+    utc_offset_u8_list = i16_to_u8_list_be(utc_offset_minutes)
+    pc_to_duckypad_buf[2] = 0x1A    # Command: Set RTC
+    pc_to_duckypad_buf[3] = unix_ts_u8_list[0]
+    pc_to_duckypad_buf[4] = unix_ts_u8_list[1]
+    pc_to_duckypad_buf[5] = unix_ts_u8_list[2]
+    pc_to_duckypad_buf[6] = unix_ts_u8_list[3]
+    pc_to_duckypad_buf[7] = utc_offset_u8_list[0]
+    pc_to_duckypad_buf[8] = utc_offset_u8_list[1]
+    print(pc_to_duckypad_buf)
+    result = hid_txrx(pc_to_duckypad_buf, hid_obj)
+    print("duckypad_sync_rtc:", result)
 
 DP_MODEL_OG_DUCKYPAD = 20
 DP_MODEL_DUCKYPAD_PRO = 24
