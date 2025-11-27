@@ -17,6 +17,49 @@ import subprocess
 import argparse
 import pystray
 from PIL import Image, ImageDraw
+if sys.platform == 'win32':
+    import winreg
+
+STARTUP_REG_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+STARTUP_APP_NAME = "duckyPad Autoswitcher"
+
+def get_startup_enabled():
+    """Check if launch at startup is enabled in Windows registry"""
+    if sys.platform != 'win32':
+        return False
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_REG_KEY, 0, winreg.KEY_READ)
+        winreg.QueryValueEx(key, STARTUP_APP_NAME)
+        winreg.CloseKey(key)
+        return True
+    except WindowsError:
+        return False
+
+def set_startup_enabled(enable, start_minimized=False):
+    """Enable or disable launch at startup in Windows registry"""
+    if sys.platform != 'win32':
+        return
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, STARTUP_REG_KEY, 0, winreg.KEY_SET_VALUE)
+        if enable:
+            # Get the path to the executable
+            if getattr(sys, 'frozen', False):
+                exe_path = sys.executable
+            else:
+                exe_path = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
+            # Add --minimized flag only if start_minimized is enabled
+            if start_minimized:
+                winreg.SetValueEx(key, STARTUP_APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}" --minimized')
+            else:
+                winreg.SetValueEx(key, STARTUP_APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}"')
+        else:
+            try:
+                winreg.DeleteValue(key, STARTUP_APP_NAME)
+            except WindowsError:
+                pass
+        winreg.CloseKey(key)
+    except WindowsError as e:
+        print(f"Failed to modify startup registry: {e}")
 
 def open_mac_linux_instruction():
     webbrowser.open('https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html')
@@ -123,7 +166,7 @@ def scaled_size(size: int) -> int:
 
 THIS_VERSION_NUMBER = '1.1.1'
 MAIN_WINDOW_WIDTH = scaled_size(640)
-MAIN_WINDOW_HEIGHT = scaled_size(660)
+MAIN_WINDOW_HEIGHT = scaled_size(720)
 PADDING = 10
 
 THIS_DUCKYPAD = dp_type()
@@ -338,8 +381,11 @@ def quit_app(icon=None, item=None):
     root.quit()
 
 def on_closing():
-    """Handle window close event - minimize to tray instead of closing"""
-    hide_window()
+    """Handle window close event - minimize to tray or quit based on setting"""
+    if config_dict.get('close_to_tray', True):
+        hide_window()
+    else:
+        quit_app()
 
 def setup_tray_icon():
     """Setup the system tray icon"""
@@ -373,6 +419,9 @@ connection_info_label.place(x=scaled_size(110), y=scaled_size(5))
 
 connection_button = Button(connection_info_lf, text="Connect", command=duckypad_connect)
 connection_button.place(x=scaled_size(PADDING), y=scaled_size(5), width=scaled_size(90))
+
+quit_button = Button(connection_info_lf, text="Quit", command=quit_app)
+quit_button.place(x=scaled_size(540), y=scaled_size(5), width=scaled_size(65))
 
 # --------------------
 
@@ -425,6 +474,39 @@ autoswitch_status_var = StringVar()
 autoswitch_status_label = Label(master=dashboard_lf, textvariable=autoswitch_status_var, font='TkFixedFont', cursor="hand2")
 autoswitch_status_label.place(x=scaled_size(10), y=scaled_size(40))
 autoswitch_status_label.bind("<Button-1>", toggle_autoswitch)
+
+# --------------------
+
+def on_close_to_tray_change():
+    config_dict['close_to_tray'] = close_to_tray_var.get()
+    save_config()
+
+def on_start_minimized_change():
+    config_dict['start_minimized'] = start_minimized_var.get()
+    save_config()
+    # Update registry if launch at startup is enabled
+    if launch_at_startup_var.get():
+        set_startup_enabled(True, start_minimized_var.get())
+
+def on_launch_at_startup_change():
+    enable = launch_at_startup_var.get()
+    set_startup_enabled(enable, start_minimized_var.get())
+
+settings_lf = LabelFrame(root, text="Settings", width=scaled_size(620), height=scaled_size(55))
+settings_lf.place(x=scaled_size(PADDING), y=scaled_size(155))
+
+close_to_tray_var = BooleanVar(value=True)
+close_to_tray_checkbox = Checkbutton(settings_lf, text="Close to tray", variable=close_to_tray_var, command=on_close_to_tray_change)
+close_to_tray_checkbox.place(x=scaled_size(10), y=scaled_size(5))
+
+start_minimized_var = BooleanVar(value=False)
+start_minimized_checkbox = Checkbutton(settings_lf, text="Start minimized to tray", variable=start_minimized_var, command=on_start_minimized_change)
+start_minimized_checkbox.place(x=scaled_size(150), y=scaled_size(5))
+
+launch_at_startup_var = BooleanVar(value=False)
+if sys.platform == 'win32':
+    launch_at_startup_checkbox = Checkbutton(settings_lf, text="Launch at startup", variable=launch_at_startup_var, command=on_launch_at_startup_change)
+    launch_at_startup_checkbox.place(x=scaled_size(350), y=scaled_size(5))
 
 # --------------------
 
@@ -531,6 +613,8 @@ switch_to_entrybox = None
 config_dict = {}
 config_dict['rules_list'] = []
 config_dict['autoswitch_enabled'] = True
+config_dict['close_to_tray'] = False
+config_dict['start_minimized'] = False
 
 def clean_input(str_input):
     return str_input.strip()
@@ -705,7 +789,7 @@ def rule_shift_down():
     save_config()
 
 rules_lf = LabelFrame(root, text="Autoswitch rules", width=scaled_size(620), height=scaled_size(410))
-rules_lf.place(x=scaled_size(PADDING), y=scaled_size(160)) 
+rules_lf.place(x=scaled_size(PADDING), y=scaled_size(215)) 
 
 profile_var = StringVar()
 profile_lstbox = Listbox(rules_lf, listvariable=profile_var, height=scaled_size(20), exportselection=0)
@@ -741,12 +825,20 @@ try:
         if isinstance(temp, list):
             config_dict['rules_list'] = temp
         elif isinstance(temp, dict):
-            config_dict = temp
+            # Merge loaded config with defaults to handle missing keys
+            loaded_config = temp
+            for key in loaded_config:
+                config_dict[key] = loaded_config[key]
         else:
             raise ValueError("not a valid config file")
     update_rule_list_display()
 except Exception as e:
     print(traceback.format_exc())
+
+# Apply loaded settings to checkboxes
+close_to_tray_var.set(config_dict.get('close_to_tray', True))
+start_minimized_var.set(config_dict.get('start_minimized', False))
+launch_at_startup_var.set(get_startup_enabled())
 
 refresh_autoswitch()
 
@@ -809,7 +901,7 @@ def dpp_is_fw_compatible(dp_info_dict):
     return True
 
 updates_lf = LabelFrame(root, text="Updates", width=scaled_size(620), height=scaled_size(80))
-updates_lf.place(x=scaled_size(PADDING), y=scaled_size(570))
+updates_lf.place(x=scaled_size(PADDING), y=scaled_size(625))
 
 pc_app_update_label = Label(master=updates_lf)
 pc_app_update_label.place(x=scaled_size(5), y=scaled_size(5))
@@ -853,8 +945,8 @@ setup_tray_icon()
 tray_thread = threading.Thread(target=run_tray_icon, daemon=True)
 tray_thread.start()
 
-# Start minimized if requested
-if args.minimized:
+# Start minimized if requested via command line or config setting
+if args.minimized or config_dict.get('start_minimized', False):
     root.withdraw()  # Hide window on startup
 else:
     root.deiconify()  # Show window normally
