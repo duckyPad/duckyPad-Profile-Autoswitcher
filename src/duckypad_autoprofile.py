@@ -479,17 +479,21 @@ autoswitch_status_label.bind("<Button-1>", toggle_autoswitch)
 
 def on_close_to_tray_change():
     config_dict['close_to_tray'] = close_to_tray_var.get()
+    print(f"Setting changed: close_to_tray = {config_dict['close_to_tray']}")
     save_config()
 
 def on_start_minimized_change():
     config_dict['start_minimized'] = start_minimized_var.get()
+    print(f"Setting changed: start_minimized = {config_dict['start_minimized']}")
     save_config()
     # Update registry if launch at startup is enabled
     if launch_at_startup_var.get():
+        print(f"Updating startup registry with start_minimized = {config_dict['start_minimized']}")
         set_startup_enabled(True, start_minimized_var.get())
 
 def on_launch_at_startup_change():
     enable = launch_at_startup_var.get()
+    print(f"Setting changed: launch_at_startup = {enable}")
     set_startup_enabled(enable, start_minimized_var.get())
 
 settings_lf = LabelFrame(root, text="Settings", width=scaled_size(620), height=scaled_size(55))
