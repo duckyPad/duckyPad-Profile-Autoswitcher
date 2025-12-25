@@ -24,7 +24,7 @@ Feel free to [review the files](./src), or run the source code directly with Pyt
 
 ### macOS / Linux
 
-* 👉 [See instructions here!](https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html)
+* 👉 [See instructions here](https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html)
 
 * **[LINUX ONLY]** Window detection not working? You might need to implement your own `get_list_of_all_windows()` and `get_active_window()` in `get_window.py`.
 
