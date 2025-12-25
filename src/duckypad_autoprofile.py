@@ -99,6 +99,10 @@ Added timeout in HID read
 Nov 16 2025
 Sets RTC automatically
 Better handling of switching to profiles that don't exist
+
+1.1.1
+Dec 25 2025
+Bumped up max supported fw version for DSVM2
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -106,7 +110,7 @@ UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
 
-THIS_VERSION_NUMBER = '1.1.0'
+THIS_VERSION_NUMBER = '1.1.1'
 MAIN_WINDOW_WIDTH = scaled_size(640)
 MAIN_WINDOW_HEIGHT = scaled_size(660)
 PADDING = 10
