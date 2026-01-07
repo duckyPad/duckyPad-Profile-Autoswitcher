@@ -1,6 +1,7 @@
 import time
 from tkinter import *
 from tkinter import messagebox
+from tkinter import ttk
 import urllib.request
 import tkinter.scrolledtext as ScrolledText
 import traceback
@@ -214,16 +215,33 @@ def open_hid_path(dp_info_dict, hid_obj):
             return True
     return False
 
-def update_windows(textbox):
-    windows_str = 'Application' + ' '*14 + "Window Title\n"
-    windows_str += "-------------------------------------\n"
-    for item in get_window.get_list_of_all_windows():
-        gap = 25 - len(item[0])
-        windows_str += str(item[0]) + ' '*gap + str(item[1]) + '\n'
-    textbox.config(state=NORMAL)
-    textbox.delete(1.0, "end")
-    textbox.insert(1.0, windows_str)
-    textbox.config(state=DISABLED)
+def update_windows(treeview):
+    """Update the windows list in the Treeview widget."""
+    # Clear existing items
+    for item in treeview.get_children():
+        treeview.delete(item)
+    # Add windows
+    for app_name, window_title in get_window.get_list_of_all_windows():
+        treeview.insert('', 'end', values=(app_name, window_title))
+
+def on_window_select(event):
+    """Handle selection in the windows Treeview - fill entry boxes."""
+    global app_name_entrybox, window_name_entrybox
+    treeview = event.widget
+    selection = treeview.selection()
+    if selection:
+        item = treeview.item(selection[0])
+        values = item['values']
+        if values and len(values) >= 2:
+            app_name = str(values[0])
+            window_title = str(values[1])
+            # Clear and fill entry boxes
+            if app_name_entrybox:
+                app_name_entrybox.delete(0, END)
+                app_name_entrybox.insert(0, app_name)
+            if window_name_entrybox:
+                window_name_entrybox.delete(0, END)
+                window_name_entrybox.insert(0, window_title)
 
 DP_WRITE_OK = 0
 DP_WRITE_FAIL = 1
@@ -512,7 +530,7 @@ def save_rule_click(window, this_rule):
 
 rule_window = None
 RULE_WINDOW_WIDTH = scaled_size(640)
-RULE_WINDOW_HEIGHT = scaled_size(510)
+RULE_WINDOW_HEIGHT = scaled_size(475)
 
 def create_rule_window(existing_rule=None):
     global rule_window
@@ -551,8 +569,35 @@ def create_rule_window(existing_rule=None):
         else:
             switch_to_entrybox.insert(0, str(existing_rule["switch_to"]))
 
+    def clear_fields():
+        """Clear all entry fields."""
+        app_name_entrybox.delete(0, END)
+        window_name_entrybox.delete(0, END)
+        switch_to_entrybox.delete(0, END)
+    
+    def choose_window_click():
+        """Minimize window, wait for user to click on target window, then capture its info."""
+        rule_window.iconify()  # Minimize
+        rule_window.after(2000, lambda: capture_active_window())
+    
+    def capture_active_window():
+        """Capture the current active window and fill the entry boxes."""
+        rule_window.deiconify()  # Restore window
+        app_name, window_title = get_window.get_active_window()
+        app_name_entrybox.delete(0, END)
+        app_name_entrybox.insert(0, app_name)
+        window_name_entrybox.delete(0, END)
+        window_name_entrybox.insert(0, window_title)
+        rule_window.lift()  # Bring to front
+    
     rule_done_button = Button(rule_edit_lf, text="Save", command=lambda:save_rule_click(rule_window, existing_rule))
-    rule_done_button.place(x=scaled_size(30), y=scaled_size(80), width=scaled_size(550))
+    rule_done_button.place(x=scaled_size(30), y=scaled_size(80), width=scaled_size(180))
+    
+    rule_clear_button = Button(rule_edit_lf, text="Clear", command=clear_fields)
+    rule_clear_button.place(x=scaled_size(220), y=scaled_size(80), width=scaled_size(180))
+    
+    choose_window_button = Button(rule_edit_lf, text="Choose Window...", command=choose_window_click)
+    choose_window_button.place(x=scaled_size(410), y=scaled_size(80), width=scaled_size(180))
 
     match_all_label = Label(master=rule_window, text="(leave blank to match all)")
     match_all_label.place(x=scaled_size(470), y=scaled_size(25))
@@ -561,22 +606,39 @@ def create_rule_window(existing_rule=None):
     match_all_label3 = Label(master=rule_window, text="(leave blank for no action)")
     match_all_label3.place(x=scaled_size(470), y=scaled_size(75))
 
-    current_window_lf = LabelFrame(rule_window, text="Active window", width=scaled_size(620), height=scaled_size(80))
-    current_window_lf.place(x=scaled_size(PADDING), y=scaled_size(140))
-
-    current_app_name_label = Label(master=current_window_lf, textvariable=current_app_name_var, font='TkFixedFont')
-    current_app_name_label.place(x=scaled_size(10), y=scaled_size(5))
-    current_window_title_label = Label(master=current_window_lf, textvariable=current_window_title_var, font='TkFixedFont')
-    current_window_title_label.place(x=scaled_size(10), y=scaled_size(30))
-
-    window_list_lf = LabelFrame(rule_window, text="All windows", width=scaled_size(620), height=scaled_size(270))
-    window_list_lf.place(x=scaled_size(PADDING), y=scaled_size(195+30)) 
-    window_list_fresh_button = Button(window_list_lf, text="Refresh", command=lambda:update_windows(windows_list_text_area))
-    window_list_fresh_button.place(x=scaled_size(30), y=scaled_size(220), width=scaled_size(550))
-    windows_list_text_area = ScrolledText.ScrolledText(window_list_lf, wrap='none', width=scaled_size(73), height=scaled_size(13))
-    windows_list_text_area.place(x=scaled_size(5), y=scaled_size(5))
+    window_list_lf = LabelFrame(rule_window, text="All windows (click to select)", width=scaled_size(620), height=scaled_size(320))
+    window_list_lf.place(x=scaled_size(PADDING), y=scaled_size(140)) 
+    
+    # Treeview with columns for Application and Window Title
+    style = ttk.Style()
+    style.configure('Treeview', rowheight=scaled_size(12))
+    style.configure('Treeview.Heading', font=('TkDefaultFont', scaled_size(4), 'bold'))
+    
+    windows_tree = ttk.Treeview(window_list_lf, columns=('app', 'title'), show='headings', selectmode='browse')
+    windows_tree.heading('app', text='Application')
+    windows_tree.heading('title', text='Window Title')
+    windows_tree.column('app', width=scaled_size(150), minwidth=scaled_size(100))
+    windows_tree.column('title', width=scaled_size(400), minwidth=scaled_size(200))
+    windows_tree.place(x=scaled_size(5), y=scaled_size(5), width=scaled_size(585), height=scaled_size(250))
+    
+    # Vertical scrollbar
+    windows_vscroll = Scrollbar(window_list_lf, orient=VERTICAL, command=windows_tree.yview)
+    windows_vscroll.place(x=scaled_size(590), y=scaled_size(5), height=scaled_size(250))
+    
+    # Horizontal scrollbar
+    windows_hscroll = Scrollbar(window_list_lf, orient=HORIZONTAL, command=windows_tree.xview)
+    windows_hscroll.place(x=scaled_size(5), y=scaled_size(255), width=scaled_size(585))
+    
+    windows_tree.config(yscrollcommand=windows_vscroll.set, xscrollcommand=windows_hscroll.set)
+    
+    # Bind selection event
+    windows_tree.bind('<<TreeviewSelect>>', on_window_select)
+    
+    window_list_fresh_button = Button(window_list_lf, text="Refresh", command=lambda:update_windows(windows_tree))
+    window_list_fresh_button.place(x=scaled_size(30), y=scaled_size(275), width=scaled_size(550))
+    
     root.update()
-    update_windows(windows_list_text_area)
+    update_windows(windows_tree)
 
 def delete_rule_click():
     selection = profile_lstbox.curselection()
@@ -631,8 +693,10 @@ rules_lf.place(x=scaled_size(PADDING), y=scaled_size(160))
 
 profile_var = StringVar()
 profile_lstbox = Listbox(rules_lf, listvariable=profile_var, height=scaled_size(20), exportselection=0)
-profile_lstbox.place(x=scaled_size(PADDING), y=scaled_size(30), width=scaled_size(500))
-profile_lstbox.config(font='TkFixedFont')
+profile_lstbox.place(x=scaled_size(PADDING), y=scaled_size(30), width=scaled_size(480))
+profile_scrollbar = Scrollbar(rules_lf, orient=VERTICAL, command=profile_lstbox.yview)
+profile_scrollbar.place(x=scaled_size(PADDING + 480), y=scaled_size(30), height=scaled_size(340))
+profile_lstbox.config(font='TkFixedFont', yscrollcommand=profile_scrollbar.set)
 # profile_lstbox.bind('<FocusOut>', lambda e: profile_lstbox.selection_clear(0, END))
 profile_lstbox.bind('<Double-Button>', edit_rule_click)
 
