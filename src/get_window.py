@@ -38,24 +38,28 @@ def get_list_of_all_windows():
 
 def linux_get_list_of_all_windows():
     ret = set()
-    ewmh = EWMH()
-    for window in ewmh.getClientList():
-        try:
-            win_pid = ewmh.getWmPid(window)
-        except TypeError:
-            win_pid = False
-        if win_pid:
-            app = psutil.Process(win_pid).name()
-        else:
-            app = 'Unknown'
-        wm_name = window.get_wm_name()
-        if not wm_name:
-            wm_name = window.get_full_property(NET_WM_NAME, 0).value
-        if not wm_name:
-            wm_name = f'class:{window.get_wm_class()[0]}'
-        if isinstance(wm_name, bytes):
-            wm_name = wm_name.decode('utf-8')
-        ret.add((app, wm_name))
+    try:
+        ewmh = EWMH()
+        for window in ewmh.getClientList():
+            try:
+                win_pid = ewmh.getWmPid(window)
+            except TypeError:
+                win_pid = False
+            if win_pid:
+                app = psutil.Process(win_pid).name()
+            else:
+                app = 'Unknown'
+            wm_name = window.get_wm_name()
+            if not wm_name:
+                wm_name = window.get_full_property(NET_WM_NAME, 0).value
+            if not wm_name:
+                wm_name = f'class:{window.get_wm_class()[0]}'
+            if isinstance(wm_name, bytes):
+                wm_name = wm_name.decode('utf-8')
+            ret.add((app, wm_name))
+    except Exception as e:
+        print(f"Error getting window list (X11): {e}")
+        return set()
     return ret
 
 def linux_get_active_window():
