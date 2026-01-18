@@ -1,17 +1,22 @@
 """
-Wayland-specific window detection for KDE Plasma.
-This module provides functions to get active window information on KDE Plasma Wayland.
+Wayland-specific window detection for various compositors.
+This module provides functions to get active window information on Wayland.
+
+Supported compositors:
+- KDE Plasma (KWin) - requires kdotool
+- Niri - uses built-in IPC (niri msg)
 """
 
 import os
 import subprocess
+import json
 import psutil
 
 
 def detect_wayland_compositor():
     """
-    Detect if KDE Plasma (KWin) compositor is running.
-    Returns: 'kwin' for KDE Plasma, or None if not detected.
+    Detect which Wayland compositor is running.
+    Returns: 'kwin' for KDE Plasma, 'niri' for Niri, or None if not detected.
     """
     # Check environment variables
     desktop_session = os.environ.get('DESKTOP_SESSION', '').lower()
@@ -21,11 +26,18 @@ def detect_wayland_compositor():
     if desktop_session == 'plasma' or 'plasma' in desktop_session or 'kde' in xdg_current_desktop:
         return 'kwin'
     
-    # Check if kwin is running
+    # Check for Niri
+    if 'niri' in xdg_current_desktop or desktop_session == 'niri':
+        return 'niri'
+    
+    # Check running processes
     for proc in psutil.process_iter(['name']):
         try:
-            if proc.info['name'] in ['kwin_wayland', 'kwin_wayland_wrapper']:
+            proc_name = proc.info['name']
+            if proc_name in ['kwin_wayland', 'kwin_wayland_wrapper']:
                 return 'kwin'
+            if proc_name == 'niri':
+                return 'niri'
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     
@@ -194,33 +206,122 @@ def kwin_get_list_of_all_windows():
         return []
 
 
+def niri_get_active_window():
+    """
+    Get active window information from Niri using niri msg IPC.
+    Returns: tuple (app_name, window_title)
+    
+    Uses built-in niri IPC, no external dependencies required.
+    """
+    try:
+        # Get focused window info as JSON
+        result = subprocess.run(['niri', 'msg', '--json', 'focused-window'],
+                              capture_output=True,
+                              text=True,
+                              timeout=1)
+        
+        if result.returncode != 0:
+            return '', ''
+        
+        output = result.stdout.strip()
+        if not output or output == 'null':
+            return '', ''
+        
+        window_info = json.loads(output)
+        
+        # Extract app_id and title
+        app_id = window_info.get('app_id', '') or ''
+        title = window_info.get('title', '') or ''
+        
+        return (app_id, title)
+        
+    except json.JSONDecodeError as e:
+        print(f"Error parsing Niri JSON: {e}")
+        return '', ''
+    except FileNotFoundError:
+        print("Warning: niri command not found.")
+        return '', ''
+    except Exception as e:
+        print(f"Error in Niri window detection: {e}")
+        return '', ''
+
+
+def niri_get_list_of_all_windows():
+    """
+    Get list of all windows from Niri using niri msg IPC.
+    Returns: list of tuples [(app_name, window_title), ...]
+    
+    Uses built-in niri IPC, no external dependencies required.
+    """
+    try:
+        # Get all windows as JSON
+        result = subprocess.run(['niri', 'msg', '--json', 'windows'],
+                              capture_output=True,
+                              text=True,
+                              timeout=2)
+        
+        if result.returncode != 0:
+            return []
+        
+        output = result.stdout.strip()
+        if not output or output == 'null':
+            return []
+        
+        windows_list = json.loads(output)
+        
+        windows = []
+        for window_info in windows_list:
+            app_id = window_info.get('app_id', '') or 'Unknown'
+            title = window_info.get('title', '') or 'Unknown'
+            windows.append((app_id, title))
+        
+        # Remove duplicates and sort
+        windows = list(set(windows))
+        windows.sort(key=lambda x: x[0])
+        return windows
+        
+    except json.JSONDecodeError as e:
+        print(f"Error parsing Niri JSON: {e}")
+        return []
+    except FileNotFoundError:
+        print("Warning: niri command not found.")
+        return []
+    except Exception as e:
+        print(f"Error getting Niri windows list: {e}")
+        return []
+
+
 def wayland_get_active_window():
     """
     Get active window information on Wayland.
-    Currently supports KDE Plasma (KWin) only.
+    Supports: KDE Plasma (KWin), Niri.
     Returns: tuple (app_name, window_title)
     """
     compositor = detect_wayland_compositor()
     
     if compositor == 'kwin':
         return kwin_get_active_window()
+    elif compositor == 'niri':
+        return niri_get_active_window()
     else:
-        print("Warning: Unsupported Wayland compositor. Only KDE Plasma is currently supported.")
+        print("Warning: Unsupported Wayland compositor. Supported: KDE Plasma, Niri.")
         return '', ''
 
 
 def wayland_get_list_of_all_windows():
     """
     Get list of all windows on Wayland.
-    Currently supports KDE Plasma (KWin) only.
+    Supports: KDE Plasma (KWin), Niri.
     Returns: list of tuples [(app_name, window_title), ...]
     """
     compositor = detect_wayland_compositor()
     
     if compositor == 'kwin':
         return kwin_get_list_of_all_windows()
+    elif compositor == 'niri':
+        return niri_get_list_of_all_windows()
     else:
-        print("Warning: Unsupported Wayland compositor. Only KDE Plasma is currently supported.")
+        print("Warning: Unsupported Wayland compositor. Supported: KDE Plasma, Niri.")
         return []
 
 
@@ -228,6 +329,13 @@ if __name__ == "__main__":
     print("Detecting Wayland compositor...")
     compositor = detect_wayland_compositor()
     print(f"Detected compositor: {compositor}")
+    
+    if compositor == 'kwin':
+        print("  -> Using kdotool for KDE Plasma")
+    elif compositor == 'niri':
+        print("  -> Using niri msg IPC (no external dependencies)")
+    else:
+        print("  -> No supported compositor detected")
     
     print("\n----- Active Window -----")
     active = wayland_get_active_window()
