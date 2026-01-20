@@ -157,6 +157,8 @@ Better handling of switching to profiles that don't exist
 1.1.1
 Nov 27 2025
 Added system tray functionality with --minimized option
+Dec 25 2025
+Bumped up max supported fw version for DSVM2
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
@@ -172,9 +174,9 @@ PADDING = 10
 THIS_DUCKYPAD = dp_type()
 
 MIN_DUCKYPAD_PRO_FIRMWARE_VERSION = "2.0.0"
-MAX_DUCKYPAD_PRO_FIRMWARE_VERSION = "2.5.0"
+MAX_DUCKYPAD_PRO_FIRMWARE_VERSION = "3.5.0"
 MIN_DUCKYPAD_2020_FIRMWARE_VERSION = "2.0.0"
-MAX_DUCKYPAD_2020_FIRMWARE_VERSION = "2.5.0"
+MAX_DUCKYPAD_2020_FIRMWARE_VERSION = "3.5.0"
 
 print("\n\n--------------------------")
 print("\n\nWelcome to duckyPad Autoswitcher!\n")
