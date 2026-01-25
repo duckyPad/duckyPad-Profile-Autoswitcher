@@ -1,5 +1,6 @@
 import hid
 import sys
+import time
 from datetime import datetime
 import threading
 
@@ -29,6 +30,9 @@ def get_duckypad_path():
 
 PC_TO_DUCKYPAD_HID_BUF_SIZE = 64
 DUCKYPAD_TO_PC_HID_BUF_SIZE = 64
+# Report ID for custom HID interface - different on different platforms/devices
+CUSTOM_HID_REPORT_ID_WRITE = 5  # Report ID we use when writing
+CUSTOM_HID_REPORT_ID_READ = [4, 5]  # Report IDs we accept when reading (4 on some Linux setups)
 
 HID_RESPONSE_OK = 0
 HID_RESPONSE_ERROR = 1
@@ -51,12 +55,25 @@ def get_all_dp_info(dp_path_list):
     for this_path in dp_path_list:
         # print(this_path)
         myh = hid.device()
-        myh.open_path(this_path)
+        try:
+            myh.open_path(this_path)
+        except Exception:
+            continue
         myh.write(pc_to_duckypad_buf)
-        result = myh.read(DUCKYPAD_TO_PC_HID_BUF_SIZE)
+        # Filter for custom HID report (Report ID 4 or 5, varies by platform)
+        start_time = time.time()
+        result = None
+        while (time.time() - start_time) < 1.0:
+            remaining_ms = int((1.0 - (time.time() - start_time)) * 1000)
+            if remaining_ms <= 0:
+                break
+            buf = myh.read(DUCKYPAD_TO_PC_HID_BUF_SIZE, timeout_ms=min(remaining_ms, 100))
+            if buf and len(buf) > 0 and buf[0] in CUSTOM_HID_REPORT_ID_READ:
+                result = buf
+                break
         myh.close()
         # print(result)
-        if result[2] != HID_RESPONSE_OK:
+        if result is None or len(result) < 3 or result[2] != HID_RESPONSE_OK:
             continue
         this_dict = make_dp_info_dict(result, this_path)
         dp_info_list.append(this_dict)
@@ -74,15 +91,61 @@ def scan_duckypads():
 
 def get_empty_pc_to_duckypad_buf():
     ptd_buf = [0] * PC_TO_DUCKYPAD_HID_BUF_SIZE
-    ptd_buf[0] = 5   # HID Usage ID
+    ptd_buf[0] = CUSTOM_HID_REPORT_ID_WRITE   # HID Report ID for custom interface
     return ptd_buf
 
 def hid_txrx_nolock(buf_64b, hid_obj):
     print("\n\nSending to duckyPad:\n", buf_64b)
     hid_obj.write(buf_64b)
-    duckypad_to_pc_buf = hid_obj.read(DUCKYPAD_TO_PC_HID_BUF_SIZE, timeout_ms=500)
-    print("\nduckyPad response:\n", duckypad_to_pc_buf)
-    return duckypad_to_pc_buf
+    # Filter for custom HID report (Report ID 4 or 5, varies by platform)
+    start_time = time.time()
+    timeout_sec = 0.5
+    while (time.time() - start_time) < timeout_sec:
+        remaining_ms = int((timeout_sec - (time.time() - start_time)) * 1000)
+        if remaining_ms <= 0:
+            break
+        duckypad_to_pc_buf = hid_obj.read(DUCKYPAD_TO_PC_HID_BUF_SIZE, timeout_ms=min(remaining_ms, 50))
+        if duckypad_to_pc_buf and len(duckypad_to_pc_buf) > 0 and duckypad_to_pc_buf[0] in CUSTOM_HID_REPORT_ID_READ:
+            print("\nduckyPad response:\n", duckypad_to_pc_buf)
+            return duckypad_to_pc_buf
+    return None
+
+# Global storage for HID path - allows reopening device for each operation
+_cached_hid_path = None
+
+def set_cached_hid_path(path):
+    global _cached_hid_path
+    _cached_hid_path = path
+
+def get_cached_hid_path():
+    return _cached_hid_path
+
+def hid_txrx_open_close(buf_64b):
+    """Send command and receive response, opening device only for this operation.
+    This avoids keyboard input issues on Linux where keeping the HID device
+    open can interfere with the kernel HID driver."""
+    path = get_cached_hid_path()
+    if path is None:
+        return None
+    try:
+        temp_hid = hid.device()
+        temp_hid.open_path(path)
+    except Exception:
+        return None
+    try:
+        temp_hid.write(buf_64b)
+        start_time = time.time()
+        timeout_sec = 0.5
+        while (time.time() - start_time) < timeout_sec:
+            remaining_ms = int((timeout_sec - (time.time() - start_time)) * 1000)
+            if remaining_ms <= 0:
+                break
+            buf = temp_hid.read(DUCKYPAD_TO_PC_HID_BUF_SIZE, timeout_ms=min(remaining_ms, 50))
+            if buf and len(buf) > 0 and buf[0] in CUSTOM_HID_REPORT_ID_READ:
+                return buf
+        return None
+    finally:
+        temp_hid.close()
 
 def hid_txrx(buf_64b, hid_obj):
     if not hid_txrx_lock.acquire(timeout=2):
@@ -111,7 +174,7 @@ def i16_to_u8_list_be(value):
         (value >> 8) & 0xFF,
         value & 0xFF ]
 
-def duckypad_sync_rtc(hid_obj):
+def duckypad_sync_rtc(hid_obj, use_open_close=False):
     pc_to_duckypad_buf = get_empty_pc_to_duckypad_buf()
     unix_ts, utc_offset_minutes = get_timestamp_and_utc_offset()
     unix_ts_u8_list = u32_to_u8_list_be(unix_ts)
@@ -123,9 +186,10 @@ def duckypad_sync_rtc(hid_obj):
     pc_to_duckypad_buf[6] = unix_ts_u8_list[3]
     pc_to_duckypad_buf[7] = utc_offset_u8_list[0]
     pc_to_duckypad_buf[8] = utc_offset_u8_list[1]
-    print(pc_to_duckypad_buf)
-    result = hid_txrx(pc_to_duckypad_buf, hid_obj)
-    print("duckypad_sync_rtc:", result)
+    if use_open_close:
+        hid_txrx_open_close(pc_to_duckypad_buf)
+    else:
+        hid_txrx(pc_to_duckypad_buf, hid_obj)
 
 DP_MODEL_OG_DUCKYPAD = 20
 DP_MODEL_DUCKYPAD_PRO = 24
