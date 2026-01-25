@@ -237,7 +237,8 @@ HID_COMMAND_GOTO_PROFILE_BY_NAME = 23
 def duckypad_write_with_retry(data_buf):
     try:
         dp_response = hid_txrx(data_buf, myh)
-        if len(dp_response) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
+        # Linux hidapi may return fewer bytes than requested, just need enough to check status
+        if dp_response is None or len(dp_response) < 3:
             return DP_WRITE_FAIL
         if dp_response[2] == 0:
             return DP_WRITE_OK
@@ -253,7 +254,8 @@ def duckypad_write_with_retry(data_buf):
         print("SECOND TRY")
         duckypad_connect()
         dp_response = hid_txrx(data_buf, myh)
-        if len(dp_response) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
+        # Linux hidapi may return fewer bytes than requested, just need enough to check status
+        if dp_response is None or len(dp_response) < 3:
             return DP_WRITE_FAIL
         if dp_response[2] == 0:
             return DP_WRITE_OK
