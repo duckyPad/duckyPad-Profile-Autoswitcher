@@ -28,6 +28,29 @@ Feel free to [review the files](./src), or run the source code directly with Pyt
 
 * **[LINUX ONLY]** Window detection not working? You might need to implement your own `get_list_of_all_windows()` and `get_active_window()` in `get_window.py`.
 
+#### Linux
+
+##### X11
+
+Works out of the box.
+
+##### Wayland
+
+Tested on Arch Linux with Kernel 6.18.x.
+
+###### KDE Plasma
+
+Requires [kdotool](https://github.com/jinliu/kdotool).
+
+Install on Arch Linux:
+```bash
+yay -S kdotool-bin
+```
+
+###### Niri
+
+Works out of the box (uses built-in `niri msg` IPC).
+
 ### Using the App
 
 Your duckyPad should show up in the `Connection` section.
