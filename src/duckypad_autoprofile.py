@@ -194,11 +194,21 @@ def duckypad_connect():
 
     if dpp_is_fw_compatible(user_selected_dp) is False:
         return False
+    
+    # Cache the HID path for open-close operations (helps with Linux keyboard issues)
+    from hid_common import set_cached_hid_path
+    set_cached_hid_path(user_selected_dp['hid_path'])
+    
     if open_hid_path(user_selected_dp, myh) is False:
         return False
     
     duckypad_sync_rtc(myh)
     time.sleep(0.1)
+    
+    # Close the persistent HID connection on Linux to avoid keyboard input issues
+    if 'linux' in sys.platform:
+        myh.close()
+    
     THIS_DUCKYPAD.device_type = user_selected_dp['dp_model']
     THIS_DUCKYPAD.info_dict = user_selected_dp
     connection_info_str.set(f"Connected!      Model: {dp_model_lookup.get(THIS_DUCKYPAD.device_type)}      Serial: {THIS_DUCKYPAD.info_dict.get('serial')}      Firmware: {THIS_DUCKYPAD.info_dict.get('fw_version')}")
@@ -235,9 +245,18 @@ HID_COMMAND_NEXT_PROFILE = 3
 HID_COMMAND_GOTO_PROFILE_BY_NAME = 23
 
 def duckypad_write_with_retry(data_buf):
+    from hid_common import hid_txrx_open_close
+    
+    # On Linux, use open-close mode to avoid keyboard issues
+    use_open_close = 'linux' in sys.platform
+    
     try:
-        dp_response = hid_txrx(data_buf, myh)
-        if len(dp_response) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
+        if use_open_close:
+            dp_response = hid_txrx_open_close(data_buf)
+        else:
+            dp_response = hid_txrx(data_buf, myh)
+        # Linux hidapi may return fewer bytes than requested, just need enough to check status
+        if dp_response is None or len(dp_response) < 3:
             return DP_WRITE_FAIL
         if dp_response[2] == 0:
             return DP_WRITE_OK
@@ -252,8 +271,12 @@ def duckypad_write_with_retry(data_buf):
     try:
         print("SECOND TRY")
         duckypad_connect()
-        dp_response = hid_txrx(data_buf, myh)
-        if len(dp_response) != PC_TO_DUCKYPAD_HID_BUF_SIZE:
+        if use_open_close:
+            dp_response = hid_txrx_open_close(data_buf)
+        else:
+            dp_response = hid_txrx(data_buf, myh)
+        # Linux hidapi may return fewer bytes than requested, just need enough to check status
+        if dp_response is None or len(dp_response) < 3:
             return DP_WRITE_FAIL
         if dp_response[2] == 0:
             return DP_WRITE_OK
@@ -776,7 +799,9 @@ def sync_rtc():
     root.after(RTC_SYNC_FREQ_SECONDS*1000, sync_rtc)
     try:
         if THIS_DUCKYPAD.info_dict is not None:
-            duckypad_sync_rtc(myh)
+            # On Linux, use open-close mode to avoid keyboard issues
+            use_open_close = 'linux' in sys.platform
+            duckypad_sync_rtc(myh, use_open_close=use_open_close)
         return
     except Exception as e:
         print("sync_rtc:", e)
