@@ -86,6 +86,16 @@ The easiest way is to place a shortcut in the Startup folder:
 
 * Right click inside the window, and click "Paste Shortcut". 
 
+## Command Line Options
+
+```bash
+python duckypad_autoprofile.py [options]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--force-switch`, `-f` | Always switch profile even if it matches the last switch. Useful if you manually change profiles on the duckyPad. |
+
 ## HID Command Protocol
 
 You can also write your own program to control duckyPad.

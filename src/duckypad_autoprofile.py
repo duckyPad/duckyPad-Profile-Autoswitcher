@@ -9,11 +9,20 @@ import os
 import webbrowser
 import sys
 import threading
+import argparse
 from hid_common import *
 import get_window
 import check_update
 from platformdirs import *
 import subprocess
+
+# Command line arguments
+parser = argparse.ArgumentParser(description='duckyPad Profile Autoswitcher')
+parser.add_argument('--force-switch', '-f', action='store_true',
+                    help='Always switch profile even if same as last (useful if you manually switch profiles on duckyPad)')
+args = parser.parse_args()
+
+FORCE_SWITCH = args.force_switch
 
 def open_mac_linux_instruction():
     webbrowser.open('https://dekunukem.github.io/duckyPad-Pro/doc/linux_macos_notes.html')
@@ -403,7 +412,7 @@ def switch_queue_add(profile_target_name):
     global last_switch
     if profile_target_name is None or len(profile_target_name) == 0:
         return
-    if profile_target_name == last_switch:
+    if not FORCE_SWITCH and profile_target_name == last_switch:
         return
     if len(profile_switch_queue) > 0 and profile_switch_queue[-1] == profile_target_name:
         return
