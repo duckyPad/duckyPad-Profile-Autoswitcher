@@ -56,9 +56,17 @@ Each rule contains **Application name**, **Window Title**, and the **Profile** t
 	* Full Name
 	* **Case Sensitive**
 
+> Profile names could be found in the `profile_info.txt` file on SD card.
+
 Click `Save` when done.
 
-Current active window and a list of all windows are provided for reference.
+#### Window Selection
+
+The **All windows** list shows all currently open windows with their application name and title.
+
+* **Click on any row** to automatically fill in the App Name and Window Title fields
+* **Choose Window...** button: minimizes the rule editor, waits a few seconds, then captures the currently active window
+* **Clear** button: clears all input fields
 
 -------
 
