@@ -1,6 +1,8 @@
 import hid
 import sys
 import time
+import os
+import select
 from datetime import datetime
 import threading
 
@@ -10,29 +12,106 @@ dp20_pid = 0xd11c
 dpp_pid = 0xd11d
 all_dp_pids = [dp20_pid, dpp_pid]
 
+DUCKYPAD_VID = 0x0483
+DUCKYPAD_VID_STR_UPPER = '00000483'
+DUCKYPAD_PID_STRS_UPPER = ['0000D11C', '0000D11D']
+
 def is_duckypad_pid(this_pid):
     return this_pid in all_dp_pids
 
+_use_hidraw = 'linux' in sys.platform
+
+# ---------------------------------------------------------------------------
+# Linux hidraw backend: communicates via /dev/hidraw* without detaching the
+# kernel HID driver. This is critical because duckyPad Pro exposes keyboard,
+# mouse, consumer-control AND custom-HID reports on a single USB interface.
+# The libusb backend calls libusb_claim_interface() which detaches the kernel
+# driver from the entire interface, blocking ALL keyboard/mouse input.
+# hidraw operates alongside the kernel driver — both receive HID reports.
+# ---------------------------------------------------------------------------
+
+def _linux_find_duckypad_hidraw_paths():
+    """Scan /sys/class/hidraw/ for duckyPad devices, return list of /dev/hidrawN paths."""
+    paths = []
+    hidraw_base = '/sys/class/hidraw'
+    if not os.path.isdir(hidraw_base):
+        return paths
+    for entry in os.listdir(hidraw_base):
+        uevent_path = os.path.join(hidraw_base, entry, 'device', 'uevent')
+        try:
+            with open(uevent_path) as f:
+                content = f.read()
+        except OSError:
+            continue
+        if DUCKYPAD_VID_STR_UPPER not in content:
+            continue
+        if not any(pid in content for pid in DUCKYPAD_PID_STRS_UPPER):
+            continue
+        paths.append(f'/dev/{entry}')
+    return paths
+
+def _linux_hidraw_txrx(path, buf_64b, timeout_sec=0.5):
+    """Send a 64-byte HID output report and read the response via hidraw.
+
+    Returns the response as a list of ints, or None on timeout/error.
+    The kernel driver stays attached — keyboard input is not disrupted.
+    """
+    fd = os.open(path, os.O_RDWR)
+    try:
+        os.write(fd, bytes(buf_64b))
+        deadline = time.monotonic() + timeout_sec
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            ready, _, _ = select.select([fd], [], [], min(remaining, 0.05))
+            if not ready:
+                continue
+            data = os.read(fd, 256)
+            if data and len(data) > 0 and data[0] in CUSTOM_HID_REPORT_ID_READ:
+                return list(data)
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+def _linux_get_all_dp_info(hidraw_paths):
+    """Get device info for all duckyPads found via hidraw."""
+    dp_info_list = []
+    pc_to_duckypad_buf = get_empty_pc_to_duckypad_buf()
+    for path in hidraw_paths:
+        result = _linux_hidraw_txrx(path, pc_to_duckypad_buf, timeout_sec=1.0)
+        if result is None or len(result) < 3 or result[2] != HID_RESPONSE_OK:
+            continue
+        this_dict = make_dp_info_dict(result, path)
+        dp_info_list.append(this_dict)
+    return dp_info_list
+
+# ---------------------------------------------------------------------------
+# Cross-platform public API
+# ---------------------------------------------------------------------------
+
 def get_duckypad_path():
+    if _use_hidraw:
+        return _linux_find_duckypad_hidraw_paths()
     dp_path_list = set()
     if 'win32' in sys.platform:
         for device_dict in hid.enumerate():
-            if device_dict['vendor_id'] == 0x0483 and \
+            if device_dict['vendor_id'] == DUCKYPAD_VID and \
             is_duckypad_pid(device_dict['product_id']) and \
             device_dict['usage'] == 58:
                 dp_path_list.add(device_dict['path'])
     else:
         for device_dict in hid.enumerate():
-            if device_dict['vendor_id'] == 0x0483 and \
+            if device_dict['vendor_id'] == DUCKYPAD_VID and \
             is_duckypad_pid(device_dict['product_id']):
                 dp_path_list.add(device_dict['path'])
     return list(dp_path_list)
 
 PC_TO_DUCKYPAD_HID_BUF_SIZE = 64
 DUCKYPAD_TO_PC_HID_BUF_SIZE = 64
-# Report ID for custom HID interface - different on different platforms/devices
-CUSTOM_HID_REPORT_ID_WRITE = 5  # Report ID we use when writing
-CUSTOM_HID_REPORT_ID_READ = [4, 5]  # Report IDs we accept when reading (4 on some Linux setups)
+CUSTOM_HID_REPORT_ID_WRITE = 5
+CUSTOM_HID_REPORT_ID_READ = [4, 5]
 
 HID_RESPONSE_OK = 0
 HID_RESPONSE_ERROR = 1
@@ -50,17 +129,17 @@ def make_dp_info_dict(hid_msg, hid_path):
     return this_dict
 
 def get_all_dp_info(dp_path_list):
+    if _use_hidraw:
+        return _linux_get_all_dp_info(dp_path_list)
     dp_info_list = []
     pc_to_duckypad_buf = get_empty_pc_to_duckypad_buf()
     for this_path in dp_path_list:
-        # print(this_path)
         myh = hid.device()
         try:
             myh.open_path(this_path)
         except Exception:
             continue
         myh.write(pc_to_duckypad_buf)
-        # Filter for custom HID report (Report ID 4 or 5, varies by platform)
         start_time = time.time()
         result = None
         while (time.time() - start_time) < 1.0:
@@ -72,7 +151,6 @@ def get_all_dp_info(dp_path_list):
                 result = buf
                 break
         myh.close()
-        # print(result)
         if result is None or len(result) < 3 or result[2] != HID_RESPONSE_OK:
             continue
         this_dict = make_dp_info_dict(result, this_path)
@@ -91,13 +169,12 @@ def scan_duckypads():
 
 def get_empty_pc_to_duckypad_buf():
     ptd_buf = [0] * PC_TO_DUCKYPAD_HID_BUF_SIZE
-    ptd_buf[0] = CUSTOM_HID_REPORT_ID_WRITE   # HID Report ID for custom interface
+    ptd_buf[0] = CUSTOM_HID_REPORT_ID_WRITE
     return ptd_buf
 
 def hid_txrx_nolock(buf_64b, hid_obj):
     print("\n\nSending to duckyPad:\n", buf_64b)
     hid_obj.write(buf_64b)
-    # Filter for custom HID report (Report ID 4 or 5, varies by platform)
     start_time = time.time()
     timeout_sec = 0.5
     while (time.time() - start_time) < timeout_sec:
@@ -110,7 +187,6 @@ def hid_txrx_nolock(buf_64b, hid_obj):
             return duckypad_to_pc_buf
     return None
 
-# Global storage for HID path - allows reopening device for each operation
 _cached_hid_path = None
 
 def set_cached_hid_path(path):
@@ -122,11 +198,16 @@ def get_cached_hid_path():
 
 def hid_txrx_open_close(buf_64b):
     """Send command and receive response, opening device only for this operation.
-    This avoids keyboard input issues on Linux where keeping the HID device
-    open can interfere with the kernel HID driver."""
+
+    On Linux, uses /dev/hidraw directly so the kernel HID driver stays attached
+    and keyboard/mouse input continues to work.
+    On other platforms, falls back to the hidapi library (libusb/IOKit).
+    """
     path = get_cached_hid_path()
     if path is None:
         return None
+    if _use_hidraw:
+        return _linux_hidraw_txrx(path, buf_64b)
     try:
         temp_hid = hid.device()
         temp_hid.open_path(path)
@@ -148,6 +229,8 @@ def hid_txrx_open_close(buf_64b):
         temp_hid.close()
 
 def hid_txrx(buf_64b, hid_obj):
+    if _use_hidraw:
+        return hid_txrx_open_close(buf_64b)
     if not hid_txrx_lock.acquire(timeout=2):
         return None
     try:

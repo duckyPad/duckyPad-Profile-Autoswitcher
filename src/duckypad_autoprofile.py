@@ -195,19 +195,19 @@ def duckypad_connect():
     if dpp_is_fw_compatible(user_selected_dp) is False:
         return False
     
-    # Cache the HID path for open-close operations (helps with Linux keyboard issues)
-    from hid_common import set_cached_hid_path
+    from hid_common import set_cached_hid_path, _use_hidraw
     set_cached_hid_path(user_selected_dp['hid_path'])
     
-    if open_hid_path(user_selected_dp, myh) is False:
-        return False
-    
-    duckypad_sync_rtc(myh)
-    time.sleep(0.1)
-    
-    # Close the persistent HID connection on Linux to avoid keyboard input issues
-    if 'linux' in sys.platform:
-        myh.close()
+    if _use_hidraw:
+        # On Linux we use /dev/hidraw directly — no need for a persistent
+        # libusb connection that would detach the kernel HID driver.
+        duckypad_sync_rtc(myh, use_open_close=True)
+        time.sleep(0.1)
+    else:
+        if open_hid_path(user_selected_dp, myh) is False:
+            return False
+        duckypad_sync_rtc(myh)
+        time.sleep(0.1)
     
     THIS_DUCKYPAD.device_type = user_selected_dp['dp_model']
     THIS_DUCKYPAD.info_dict = user_selected_dp
